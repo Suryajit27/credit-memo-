@@ -1,0 +1,44 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+
+    "DOCUMENT_INTELLIGENCE_ENDPOINT": "https://<doc-intel-name>.cognitiveservices.azure.com/",
+    "DOCUMENT_INTELLIGENCE_KEY": "<doc-intel-key>",
+    "CLASSIFIER_ID": "<classifier-id>",
+
+    "AZURE_STORAGE_CONNECTION_STRING": "<storage-connection-string>",
+    "BLOB_CONTAINER_NAME": "loan-documents",
+    "BLOB_MEMO_CONTAINER_NAME": "loan-credit-memos",
+
+    "COSMOS_DB_ENDPOINT": "https://<cosmos-account>.documents.azure.com:443/",
+    "COSMOS_DB_KEY": "<cosmos-key>",
+    "COSMOS_DB_DATABASE": "docintellidb",
+    "COSMOS_DB_CONTAINER": "loan-documents-index",
+    "COSMOS_DB_MEMO_CONTAINER": "credit-memos",
+
+    "AZURE_SEARCH_ENDPOINT": "https://<search-service>.search.windows.net",
+    "AZURE_SEARCH_ADMIN_KEY": "<search-admin-key>",
+    "AZURE_SEARCH_INDEX_NAME": "loan-documents-index",
+    "AZURE_SEARCH_INDEXER_NAME": "loan-documents-indexer",
+    "AZURE_SEARCH_DATASOURCE_NAME": "loan-documents-datasource",
+    "AZURE_SEARCH_SKILLSET_NAME": "loan-documents-skillset",
+
+    "AZURE_OPENAI_ENDPOINT": "https://<openai-name>.openai.azure.com/",
+    "AZURE_OPENAI_API_KEY": "<openai-key>",
+    "AZURE_OPENAI_KEY": "<openai-key>",
+    "AZURE_OPENAI_DEPLOYMENT_NAME": "gpt-5.4-mini",
+    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "text-embedding-3-small",
+
+    "FOUNDRY_PROJECT_ENDPOINT": "https://<foundry-resource>.services.ai.azure.com/api/projects/<project-name>",
+    "FOUNDRY_API_KEY": "<foundry-key>",
+    "FOUNDRY_MEMO_AGENT_NAME": "credit-memo-agent",
+    "FOUNDRY_CHAT_AGENT_NAME": "request-chat-agent",
+
+    "PYTHON_ENABLE_INIT_INDEXING": "1",
+    "PYTHON_ISOLATE_WORKER_DEPENDENCIES": "1",
+    "PYTHON_ENABLE_WORKER_EXTENSIONS": "1"
+  }
+}
