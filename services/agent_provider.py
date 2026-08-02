@@ -153,9 +153,102 @@ class HostedAgentRunner:
                 pass
 
     def run_stream(self, user_prompt: str) -> Iterator[str]:
-        text = self.run_text(user_prompt)
-        for chunk in _chunk_for_stream(text):
-            yield chunk
+        body = {
+            "agent_reference": {
+                "type": "agent_reference",
+            }
+        }
+        if self.agent_name:
+            body["agent_reference"]["name"] = self.agent_name
+        if self.agent_id:
+            body["agent_reference"]["id"] = self.agent_id
+
+        conversation = self.client.conversations.create()
+        conversation_id = getattr(conversation, "id", None)
+        if not conversation_id:
+            raise RuntimeError("Failed to create Foundry conversation for streaming run.")
+
+        response_input: Any = user_prompt
+        try:
+            for _ in range(20):
+                create_kwargs = {
+                    "model": self.deployment,
+                    "input": response_input,
+                    "conversation": conversation_id,
+                    "extra_body": body,
+                }
+
+                response = None
+                streamed_text = ""
+                stream_api = getattr(self.client.responses, "stream", None)
+
+                if callable(stream_api):
+                    try:
+                        with stream_api(**create_kwargs) as stream:
+                            for event in stream:
+                                event_type = getattr(event, "type", "")
+                                if event_type == "response.output_text.delta":
+                                    delta = getattr(event, "delta", "")
+                                    if delta:
+                                        piece = str(delta)
+                                        streamed_text += piece
+                                        yield piece
+                        response = stream.get_final_response()
+                    except Exception as exc:
+                        logger.warning(f"Streaming response fallback to non-stream mode: {exc}")
+                        response = None
+                        streamed_text = ""
+
+                if response is None:
+                    response = self.client.responses.create(**create_kwargs)
+
+                output_items = list(getattr(response, "output", []) or [])
+                tool_calls = [item for item in output_items if getattr(item, "type", "") == "function_call"]
+
+                if not tool_calls:
+                    output_text = getattr(response, "output_text", None)
+                    if output_text:
+                        text = str(output_text)
+                        if streamed_text:
+                            if text.startswith(streamed_text):
+                                remainder = text[len(streamed_text):]
+                                if remainder:
+                                    yield remainder
+                        else:
+                            for chunk in _chunk_for_stream(text):
+                                yield chunk
+                        return
+
+                    if streamed_text:
+                        return
+
+                    for chunk in _chunk_for_stream(str(response)):
+                        yield chunk
+                    return
+
+                response_input = []
+                for call in tool_calls:
+                    call_id = getattr(call, "call_id", "")
+                    name = getattr(call, "name", "")
+                    arguments = getattr(call, "arguments", "{}")
+                    output = self._run_tool(name, arguments)
+                    response_input.append(
+                        {
+                            "type": "function_call_output",
+                            "call_id": call_id,
+                            "output": output,
+                        }
+                    )
+
+            for chunk in _chunk_for_stream(
+                "I could not complete the tool-calling loop within limits. Please retry with a narrower request."
+            ):
+                yield chunk
+        finally:
+            try:
+                self.client.conversations.delete(conversation_id=conversation_id)
+            except Exception:
+                pass
 
 
 def create_agent(instructions: str, tools: list = None, agent_kind: str = "memo") -> HostedAgentRunner:
