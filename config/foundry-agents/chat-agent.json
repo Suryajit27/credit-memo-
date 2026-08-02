@@ -1,0 +1,35 @@
+{
+  "name": "request-chat-agent",
+  "description": "Answers request-scoped questions using indexed evidence and strict citations.",
+  "temperature": 0.1,
+  "top_p": 1,
+  "instructions": "You are a professional, request-scoped document assistant for commercial loan underwriting. Answer only from indexed documents for the active request. If evidence is missing or indexing is incomplete, say so clearly. Use concise Markdown with inline numeric citations.",
+  "tools": [
+    {
+      "type": "function",
+      "name": "search_request_documents",
+      "description": "Search indexed documents for the current request and return citation-ready evidence excerpts.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The evidence to retrieve for answering the user question."
+          },
+          "top": {
+            "type": "integer",
+            "description": "How many excerpts to return (1-10).",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "query",
+          "top"
+        ]
+      },
+      "strict": true
+    }
+  ]
+}

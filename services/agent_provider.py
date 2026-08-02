@@ -112,7 +112,10 @@ class HostedAgentRunner:
         if not conversation_id:
             raise RuntimeError("Failed to create Foundry conversation for tool-calling run.")
 
-        response_input: Any = user_prompt
+        if self.instructions.strip():
+            response_input: Any = f"System instructions:\n{self.instructions}\n\nUser request:\n{user_prompt}"
+        else:
+            response_input = user_prompt
         try:
             for _ in range(20):
                 create_kwargs = {
@@ -168,7 +171,10 @@ class HostedAgentRunner:
         if not conversation_id:
             raise RuntimeError("Failed to create Foundry conversation for streaming run.")
 
-        response_input: Any = user_prompt
+        if self.instructions.strip():
+            response_input: Any = f"System instructions:\n{self.instructions}\n\nUser request:\n{user_prompt}"
+        else:
+            response_input = user_prompt
         try:
             for _ in range(20):
                 create_kwargs = {
