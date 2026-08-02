@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+artifacts/**/node_modules
+artifacts/**/dist
+**/.vite
+**/.turbo
+**/.cache
+**/*.tsbuildinfo
+.git
+.github
+pnpm-debug.log
+npm-debug.log
+yarn-error.log

@@ -21,3 +21,4 @@ Thumbs.db
 
 actual_ui/Code-Generation-UI/.turbo/
 actual_ui/Code-Generation-UI/artifacts/**/node_modules/
+infra/main.json

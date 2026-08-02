@@ -35,12 +35,14 @@ The main flow is:
 - `actual_ui/Code-Generation-UI/artifacts/doculender-ai/`
   - Main React app used for the current UI.
   - `src/pages/home.tsx`: document intake, search, and indexer status.
-  - `src/pages/memo.tsx`: memo drafting/review screen and live agent stream.
+  - `src/pages/memo.tsx`: memo drafting/review screen, live agent stream, and section regeneration stream.
   - `src/components/workspace-shell.tsx`: layout and sidebar status widgets.
+  - `src/components/request-chat-widget.tsx`: request-scoped streaming chat tied to indexed evidence.
   - `src/lib/request-id-context.tsx`: request ID sharing across UI areas.
 - `actual_ui/Code-Generation-UI/artifacts/api-server/`
   - Express proxy that forwards UI requests to Azure Functions.
-  - Handles `/api/*` routes, including streaming memo drafting.
+  - Handles `/api/*` routes, including streaming memo drafting/regeneration/chat.
+  - Must forward `x-functions-key` on backend calls to avoid auth failures and empty-body JSON parse errors.
 - `actual_ui/Code-Generation-UI/lib/api-client-react/`
   - Generated React Query client used by the UI.
 
@@ -62,6 +64,13 @@ The main flow is:
 5. For each section, the agent runs hybrid search for evidence.
 6. Draft text is streamed back as SSE events.
 7. UI renders the draft and lets the user approve or regenerate sections.
+8. Section regeneration uses `/api/memo/section/regenerate/stream` and emits token deltas in real time.
+
+### Request Chat
+1. User opens request chat in the memo screen.
+2. UI calls `/api/chat/stream` with `requestId`, prompt, and history.
+3. Azure Functions performs request-scoped retrieval and answer synthesis.
+4. SSE tokens and tool activity are streamed back to the chat widget.
 
 ### Finalization
 1. All sections must be approved.
@@ -71,7 +80,7 @@ The main flow is:
 
 ## Important Points
 - `host.json` must keep streaming enabled for SSE to work.
-- The Express proxy uses manual stream piping for memo drafting.
+- The Express proxy uses manual stream piping for memo drafting, section regeneration, and chat.
 - The agent uses Azure OpenAI directly through Agent Framework.
 - `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT_NAME` must be set.
 - The agent currently defaults to `gpt-5.4-mini`.
@@ -80,12 +89,24 @@ The main flow is:
 - Source documents and memo documents should not share the same index target.
 - Large memo documents are chunked before upload to avoid embedding token limits.
 - `requestId` is the key join field across Cosmos, Blob, Search, and UI state.
+- Memo page auto-loads the shared `requestId` after index status reaches `succeeded`.
 - Streaming UI now renders markdown directly in the live terminal log.
 - Citation badges are styled as small boxy markers and should remain tightly attached to the text.
+- Current UX language intentionally emphasizes "credit memo narratives" across intake, drafting, and chat.
+- Architecture diagram source is stored at `architecture/credit-memo-architecture.drawio`.
+
+## Environment Portability
+- Primary deployment path is now infrastructure-as-code plus one orchestrator script: `infra/main.bicep` + `scripts/deploy-full.ps1`.
+- Foundry agent definitions are stored in repo (`config/foundry-agents/*.json`) and bootstrapped automatically via `scripts/bootstrap_foundry_agents.py`.
+- Deploy flow is parameterized, so moving to a new environment is mostly updating subscription/resource/env values and rerunning the same command.
+- Deploy flow supports both creating new resources and reusing existing resources (`-ReuseExistingResources`) when quota blocks new provisioning.
+- Search artifacts are applied as create/update operations in deployment flow (no implicit delete/recreate path).
+- `CLASSIFIER_ID` must exist in the configured Document Intelligence account/endpoint for that environment.
 
 ## Practical Notes For Future Changes
 - Do not put secrets into this file.
 - If the agent stream breaks, check the Azure OpenAI env values first.
+- If UI API calls fail with `Unexpected end of JSON input`, verify proxy forwarding of `x-functions-key`.
 - If index status stays stale, check Cosmos request telemetry and AI Search indexer state.
 - If a memo record is missing, the UI should see a `not_started` or empty response, not a hard failure.
 - Keep the memo status and indexer status endpoints separate.

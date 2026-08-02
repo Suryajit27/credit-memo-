@@ -65,20 +65,29 @@ curl -X POST http://localhost:7071/api/classify \
 }
 ```
 
-## Azure Deployment
+## One-Command Azure Deployment (IaC)
 
-Use the Azure CLI or VS Code Azure Functions extension to deploy the backend application:
+This repo includes a full Infrastructure as Code path that provisions and deploys the complete system in one run:
 
-```bash
-func azure functionapp publish <FunctionAppName>
+- Bicep template: `infra/main.bicep`
+- Orchestrator script: `scripts/deploy-full.ps1`
+- Foundry agent configs: `config/foundry-agents/memo-agent.json`, `config/foundry-agents/chat-agent.json`
+
+Quickstart:
+
+```powershell
+./scripts/deploy-full.ps1 `
+  -SubscriptionId "<subscription-id>" `
+  -ClassifierId "<classifier-id>" `
+  -OpenAIEndpoint "https://<resource>.openai.azure.com/" `
+  -OpenAIApiKey "<openai-key>" `
+  -FoundryProjectEndpoint "https://<resource>.services.ai.azure.com/api/projects/<project-name>" `
+  -FoundryApiKey "<foundry-key>"
 ```
 
-Remember to set the application settings (`DOCUMENT_INTELLIGENCE_ENDPOINT`, `DOCUMENT_INTELLIGENCE_KEY`, `CLASSIFIER_ID`) in your deployed Azure Function App.
+Full guide:
 
-For the full POC deployment (Functions + proxy + React UI + Azure dependencies), use:
-
-- `deployment/AZURE_POC_DEPLOYMENT.md`
-- `deployment/azure-poc-deploy.ps1`
+- `deployment/ONE_CLICK_DEPLOY.md`
 
 ## Git And Reproducibility Checklist
 
