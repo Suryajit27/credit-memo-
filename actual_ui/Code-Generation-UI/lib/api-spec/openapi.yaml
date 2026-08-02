@@ -1,0 +1,273 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: classification
+    description: Document classification and indexing
+  - name: memo
+    description: Credit memo drafting and review
+  - name: chat
+    description: Request-scoped document chat
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /indexer-status:
+    get:
+      operationId: getIndexerStatus
+      tags: [classification]
+      summary: Get indexing progress
+      parameters:
+        - $ref: "#/components/parameters/RequestIdQuery"
+      responses:
+        "200":
+          description: Current indexing status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexerStatus"
+  /search:
+    post:
+      operationId: searchDocuments
+      tags: [classification]
+      summary: Search indexed documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchInput"
+      responses:
+        "200":
+          description: Matching indexed documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+  /memo/status:
+    get:
+      operationId: getMemoStatus
+      tags: [memo]
+      summary: Get credit memo drafting state
+      parameters:
+        - $ref: "#/components/parameters/RequestIdQuery"
+      responses:
+        "200":
+          description: Memo state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoState"
+  /memo/section/approve:
+    post:
+      operationId: approveMemoSection
+      tags: [memo]
+      summary: Approve a memo section
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoSectionActionInput"
+      responses:
+        "200":
+          description: Updated memo state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoState"
+  /memo/section/regenerate:
+    post:
+      operationId: regenerateMemoSection
+      tags: [memo]
+      summary: Regenerate a memo section
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoRegenerateInput"
+      responses:
+        "200":
+          description: Updated memo state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoState"
+  /memo/finalize:
+    post:
+      operationId: finalizeMemo
+      tags: [memo]
+      summary: Finalize and publish a memo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoFinalizeInput"
+      responses:
+        "200":
+          description: Published memo details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinalizeResponse"
+  /chat/stream:
+    post:
+      operationId: streamDocumentChat
+      tags: [chat]
+      summary: Stream a request-scoped document chat response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatStreamInput"
+      responses:
+        "200":
+          description: Server-sent events stream with grounded chat tokens and status events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+components:
+  parameters:
+    RequestIdQuery:
+      name: requestId
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    IndexerStatus:
+      type: object
+      required: [requestId, indexingStatus, indexedCount, totalCount, indexingErrors]
+      properties:
+        requestId: { type: string }
+        indexingStatus:
+          type: string
+          enum: [pending, running, succeeded, failed]
+        indexedCount: { type: integer, minimum: 0 }
+        totalCount: { type: integer, minimum: 0 }
+        indexingErrors:
+          type: array
+          items: { type: string }
+        indexingStartedAt: { type: string }
+        indexingCompletedAt: { type: string }
+    SearchInput:
+      type: object
+      required: [query, requestId]
+      properties:
+        query: { type: string }
+        requestId: { type: string }
+        top: { type: integer, minimum: 1, maximum: 20, default: 5 }
+    SearchResult:
+      type: object
+      required: [documentType, score, blobName, content]
+      properties:
+        documentType: { type: string }
+        score: { type: number }
+        blobName: { type: string }
+        content: { type: string }
+    MemoSection:
+      type: object
+      required: [name, status, content, regenCount, reviewerNotes]
+      properties:
+        name: { type: string }
+        status:
+          type: string
+          enum: [drafted, approved, regenerating, manual_escalation]
+        content: { type: string }
+        regenCount: { type: integer }
+        reviewerNotes: { type: string }
+    MemoState:
+      type: object
+      required: [requestId, status, approvedCount, totalSections, sections, rationales]
+      properties:
+        requestId: { type: string }
+        status:
+          type: string
+          enum: [not_started, drafting, ready_for_review, finalized]
+        approvedCount: { type: integer }
+        totalSections: { type: integer }
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoSection"
+        rationales:
+          type: array
+          items: { type: string }
+    MemoSectionActionInput:
+      type: object
+      required: [requestId, sectionName]
+      properties:
+        requestId: { type: string }
+        sectionName: { type: string }
+    MemoRegenerateInput:
+      type: object
+      required: [requestId, sectionName]
+      properties:
+        requestId: { type: string }
+        sectionName: { type: string }
+        reviewerNotes: { type: string }
+    MemoFinalizeInput:
+      type: object
+      required: [requestId, approver]
+      properties:
+        requestId: { type: string }
+        approver: { type: string, minLength: 1 }
+    FinalizeResponse:
+      type: object
+      required: [requestId, status, blobPath, markdown]
+      properties:
+        requestId: { type: string }
+        status: { type: string, enum: [published] }
+        blobPath: { type: string }
+        markdown: { type: string }
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+    ChatStreamInput:
+      type: object
+      required: [requestId, message]
+      properties:
+        requestId: { type: string }
+        message: { type: string, minLength: 1 }
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"

@@ -387,6 +387,42 @@ async def memo_section_regenerate_endpoint(req: Request):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.route(route="memo/section/regenerate/stream", methods=["POST", "GET"])
+async def memo_section_regenerate_stream_endpoint(req: Request):
+    try:
+        if req.method == "POST":
+            req_body = await req.json()
+            request_id = req_body.get("requestId")
+            section_name = req_body.get("sectionName")
+            reviewer_notes = req_body.get("reviewerNotes")
+        else:
+            request_id = req.query_params.get("requestId")
+            section_name = req.query_params.get("sectionName")
+            reviewer_notes = req.query_params.get("reviewerNotes")
+
+        if not request_id or not section_name:
+            return JSONResponse(status_code=400, content={"error": "Missing required 'requestId' or 'sectionName'."})
+
+        from services.credit_memo_agent import stream_regenerate_section
+
+        return StreamingResponse(
+            stream_regenerate_section(
+                request_id=request_id,
+                section_name=section_name,
+                reviewer_notes=reviewer_notes,
+            ),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error in memo/section/regenerate/stream endpoint: {str(e)}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.route(route="memo/finalize", methods=["POST"])
 async def memo_finalize_endpoint(req: Request):
     try:

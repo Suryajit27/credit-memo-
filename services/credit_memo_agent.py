@@ -26,6 +26,10 @@ TAXONOMY = [
     "Other Considerations"
 ]
 
+
+def _sse(event: str, payload: dict) -> str:
+    return f"data: {json.dumps({'event': event, **payload})}\n\n"
+
 ANALYSIS_SYSTEM_PROMPT = """You are a senior loan underwriting analyst. Your task is to determine which sections of a commercial credit memo taxonomy are relevant given the available documents for a loan request.
 
 For each of the 9 taxonomy sections, decide whether it should be included or excluded and provide a brief rationale.
@@ -239,6 +243,22 @@ async def draft_section(request_id: str, section_name: str) -> dict:
     return {"section_name": section_name, "content": response, "citations": []}
 
 
+def _build_regeneration_prompts(section_name: str, doc_types: list[str], reviewer_notes: str, regen_count: int) -> tuple[str, str]:
+    system = (
+        f"You are an expert commercial loan underwriter revising the '{section_name}' section based on reviewer feedback.\n"
+        f"Use the search_documents tool to find any additional evidence needed.\n"
+        f"Regeneration attempt #{regen_count}/2.\n"
+        f"Reviewer feedback: {reviewer_notes or 'Please refine detail and clarity.'}\n"
+        "Write Markdown with strict numeric inline citations only (for example [1], [2])."
+    )
+    user = f"Available document types: {doc_types}\n\nRegenerate the '{section_name}' section addressing the feedback above."
+    user += "\nUse no more than 6 tool calls."
+    user += "\nEvery factual statement or financial metric must include inline numeric citations only (e.g., [1], [2])."
+    user += "\nDo not use document-name citations inside brackets."
+    user += "\nEnd with a Footnotes block in the exact format: [n] <document name>, p.<page>."
+    return system, user
+
+
 async def regenerate_section(request_id: str, section_name: str, reviewer_notes: str = None) -> dict:
     logger.info(f"Regenerating section '{section_name}' for request {request_id}")
 
@@ -249,15 +269,12 @@ async def regenerate_section(request_id: str, section_name: str, reviewer_notes:
 
     doc_types = list({d.get("documentType", "Unknown") for d in (get_request_from_cosmos(request_id) or {}).get("documents", [])})
 
-    system = (
-        f"You are an expert commercial loan underwriter revising the '{section_name}' section based on reviewer feedback.\n"
-        f"Use the search_documents tool to find any additional evidence needed.\n"
-        f"Regeneration attempt #{new_count}/2.\n"
-        f"Reviewer feedback: {reviewer_notes or 'Please refine detail and clarity.'}"
+    system, user = _build_regeneration_prompts(
+        section_name=section_name,
+        doc_types=doc_types,
+        reviewer_notes=reviewer_notes,
+        regen_count=new_count,
     )
-    user = f"Available document types: {doc_types}\n\nRegenerate the '{section_name}' section addressing the feedback above."
-    user += "\nUse no more than 6 tool calls."
-    user += "\nUse strict numeric inline citations only (e.g., [1], [2]) and include a Footnotes block in the required format."
     agent = create_agent(system, tools=_memo_tools(request_id), agent_kind="memo")
     response = agent.run_text(user)
 
@@ -268,6 +285,110 @@ async def regenerate_section(request_id: str, section_name: str, reviewer_notes:
 
     update_section_status(request_id, section_name, "drafted", reviewer_notes=reviewer_notes)
     return {"status": "drafted", "section_name": section_name, "regen_count": new_count, "content": response, "citations": []}
+
+
+async def stream_regenerate_section(request_id: str, section_name: str, reviewer_notes: str = None):
+    logger.info(f"Streaming regeneration for section '{section_name}' on request {request_id}")
+    yield _sse("regen_started", {"request_id": request_id, "section_name": section_name})
+
+    try:
+        new_count, can_regen = increment_section_regen_count(request_id, section_name)
+        if not can_regen:
+            logger.warning(f"Section '{section_name}' exceeded max regenerations.")
+            yield _sse(
+                "manual_escalation",
+                {
+                    "status": "manual_escalation",
+                    "message": "Max 2 regenerations reached.",
+                    "section_name": section_name,
+                    "regen_count": new_count,
+                },
+            )
+            return
+
+        doc_types = list(
+            {
+                d.get("documentType", "Unknown")
+                for d in (get_request_from_cosmos(request_id) or {}).get("documents", [])
+            }
+        )
+        system, user = _build_regeneration_prompts(
+            section_name=section_name,
+            doc_types=doc_types,
+            reviewer_notes=reviewer_notes,
+            regen_count=new_count,
+        )
+
+        yield _sse(
+            "status",
+            {
+                "phase": "drafting",
+                "message": f"Regenerating '{section_name}' with reviewer feedback.",
+                "section_name": section_name,
+                "regen_count": new_count,
+            },
+        )
+
+        agent = create_agent(system, tools=_memo_tools(request_id), agent_kind="memo")
+        accumulated_text = ""
+        for chunk in agent.run_stream(user):
+            if chunk:
+                clean = str(chunk).replace("\u258B", "")
+                accumulated_text += clean
+                yield _sse("token_delta", {"section_name": section_name, "delta": clean})
+                yield _sse("terminal_token", {"section_name": section_name, "token": clean})
+
+        if not accumulated_text.strip():
+            logger.error(f"Regeneration stream returned no content for '{section_name}'")
+            update_section_status(request_id, section_name, "drafted", reviewer_notes=reviewer_notes)
+            yield _sse(
+                "regen_error",
+                {
+                    "code": "empty_response",
+                    "status": "drafted",
+                    "message": "No regenerated content was produced. Please retry.",
+                    "section_name": section_name,
+                    "regen_count": new_count,
+                },
+            )
+            return
+
+        save_section_draft(
+            request_id=request_id,
+            section_name=section_name,
+            content=accumulated_text,
+            citations=[],
+        )
+        update_section_status(
+            request_id=request_id,
+            section_name=section_name,
+            status="drafted",
+            reviewer_notes=reviewer_notes,
+        )
+
+        yield _sse(
+            "regen_complete",
+            {
+                "status": "drafted",
+                "section_name": section_name,
+                "regen_count": new_count,
+                "content": accumulated_text,
+                "citations": [],
+            },
+        )
+    except Exception as exc:
+        logger.error(f"Error while streaming regenerate for {request_id}/{section_name}: {exc}", exc_info=True)
+        yield _sse(
+            "regen_error",
+            {
+                "code": "regenerate_stream_failed",
+                "status": "error",
+                "message": f"Unable to stream regenerated draft for '{section_name}'.",
+                "section_name": section_name,
+            },
+        )
+    finally:
+        yield _sse("done", {"section_name": section_name})
 
 
 async def stream_full_drafting_flow(request_id: str):
