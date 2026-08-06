@@ -107,6 +107,7 @@ The main flow is:
 - Do not put secrets into this file.
 - If the agent stream breaks, check the Azure OpenAI env values first.
 - If UI API calls fail with `Unexpected end of JSON input`, verify proxy forwarding of `x-functions-key`.
+- If search skillset provisioning fails with `Provided key is not a valid CognitiveServices type key`, use an Azure AI Services multi-service key in the same region as the Search service.
 - If index status stays stale, check Cosmos request telemetry and AI Search indexer state.
 - If a memo record is missing, the UI should see a `not_started` or empty response, not a hard failure.
 - Keep the memo status and indexer status endpoints separate.

@@ -36,6 +36,7 @@ Copy `.env.deploy.template` and fill values (or pass directly as script args):
 - `OPENAI_EMBEDDING_DEPLOYMENT`
 - `FOUNDRY_PROJECT_ENDPOINT`
 - `FOUNDRY_API_KEY` (can be same as OpenAI key)
+- `COGNITIVE_SERVICES_KEY` (recommended for Search enrichment; must be an Azure AI Services multi-service key in the same region as Search)
 
 ## 3) Run deployment
 
@@ -52,6 +53,7 @@ From repo root:
   -OpenAIApiKey "<openai-key>" `
   -OpenAIDeploymentName "gpt-5.4-mini" `
   -OpenAIEmbeddingDeployment "text-embedding-3-small" `
+  -CognitiveServicesKey "<azure-ai-services-key>" `
   -FoundryProjectEndpoint "https://<resource>.services.ai.azure.com/api/projects/<project-name>" `
   -FoundryApiKey "<foundry-key>"
 ```
@@ -93,6 +95,8 @@ If you edit tool schemas or instructions in these JSON files, rerun `deploy-full
 - `-SkipSmokeTest` to skip post-deploy endpoint validation.
 - `-ReuseExistingResources` to skip infra creation and deploy into existing Azure resources (useful when your subscription has zero App Service quota in the target region).
 - `-DocumentIntelligenceResourceGroup` when your classifier lives in a different resource group than the rest of the stack.
+- `-CognitiveServicesKey` to provide an Azure AI Services key explicitly.
+- `-CognitiveServicesAccountName` (+ optional `-CognitiveServicesResourceGroup`) to resolve the Azure AI Services key automatically.
 
 When `-ReuseExistingResources` is set, provide:
 
@@ -109,4 +113,5 @@ When `-ReuseExistingResources` is set, provide:
 
 - Azure AI Search `free` SKU can fail in subscriptions that already have a free Search service; `infra/main.bicep` defaults to `basic` to keep deployment reliable.
 - Document Intelligence `F0` can also be quota-limited; deployment defaults to `S0`.
+- For Search skillsets, use an Azure AI Services multi-service key from the same region as the Search service. Document Intelligence keys are not valid replacements in all environments.
 - Custom domain setup remains separate from this script.
