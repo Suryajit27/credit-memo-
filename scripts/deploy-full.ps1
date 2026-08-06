@@ -5,6 +5,9 @@ Param(
   [string] $Location = "eastus",
   [string] $StaticWebAppLocation = "eastus2",
   [string] $DocumentIntelligenceResourceGroup = "",
+  [string] $CognitiveServicesResourceGroup = "",
+  [string] $CognitiveServicesAccountName = "",
+  [string] $CognitiveServicesKey = "",
   [string] $SearchSku = "basic",
   [string] $DocumentIntelligenceSku = "S0",
   [Parameter(Mandatory = $true)] [string] $ClassifierId,
@@ -38,6 +41,10 @@ if ([string]::IsNullOrWhiteSpace($ResourceGroup)) {
 
 if ([string]::IsNullOrWhiteSpace($DocumentIntelligenceResourceGroup)) {
   $DocumentIntelligenceResourceGroup = $ResourceGroup
+}
+
+if ([string]::IsNullOrWhiteSpace($CognitiveServicesResourceGroup)) {
+  $CognitiveServicesResourceGroup = $ResourceGroup
 }
 
 if ([string]::IsNullOrWhiteSpace($FoundryApiKey)) {
@@ -97,6 +104,16 @@ Assert-LastExitCode -Step "Setting Azure subscription"
 az group create --name $ResourceGroup --location $Location | Out-Null
 Assert-LastExitCode -Step "Creating/updating resource group"
 
+if ([string]::IsNullOrWhiteSpace($CognitiveServicesKey) -and -not [string]::IsNullOrWhiteSpace($CognitiveServicesAccountName)) {
+  "Resolving Azure AI Services key from account '$CognitiveServicesAccountName'..."
+  $CognitiveServicesKey = az cognitiveservices account keys list --resource-group $CognitiveServicesResourceGroup --name $CognitiveServicesAccountName --query "key1" --output tsv
+  Assert-LastExitCode -Step "Reading Azure AI Services key"
+}
+
+if ([string]::IsNullOrWhiteSpace($CognitiveServicesKey)) {
+  "Warning: no Azure AI Services key was provided. Search skillset will use DefaultCognitiveServices (limited enrichment quota)."
+}
+
 if ($ReuseExistingResources) {
   "Reusing existing resources (skipping infra provisioning)..."
   $functionAppName = Require-ExistingValue -Value $ExistingFunctionAppName -Name "ExistingFunctionAppName"
@@ -116,7 +133,7 @@ else {
     --name $deploymentName `
     --resource-group $ResourceGroup `
     --template-file (Join-Path $repoRoot "infra/main.bicep") `
-    --parameters "environmentName=$EnvironmentName" "location=$Location" "staticWebAppLocation=$StaticWebAppLocation" "searchSku=$SearchSku" "documentIntelligenceSku=$DocumentIntelligenceSku" "azureOpenAIEndpoint=$OpenAIEndpoint" "azureOpenAIApiKey=$OpenAIApiKey" "azureOpenAIEmbeddingDeployment=$OpenAIEmbeddingDeployment" `
+    --parameters "environmentName=$EnvironmentName" "location=$Location" "staticWebAppLocation=$StaticWebAppLocation" "searchSku=$SearchSku" "documentIntelligenceSku=$DocumentIntelligenceSku" "azureOpenAIEndpoint=$OpenAIEndpoint" "azureOpenAIApiKey=$OpenAIApiKey" "azureOpenAIEmbeddingDeployment=$OpenAIEmbeddingDeployment" "azureCognitiveServicesKey=$CognitiveServicesKey" `
     --query "properties.outputs" `
     --output json
   Assert-LastExitCode -Step "Deploying infrastructure template"
@@ -161,7 +178,7 @@ az functionapp config appsettings set --resource-group $ResourceGroup --name $fu
   "AZURE_SEARCH_SKILLSET_NAME=loan-documents-skillset" `
   "DOCUMENT_INTELLIGENCE_ENDPOINT=$docIntelEndpoint" `
   "DOCUMENT_INTELLIGENCE_KEY=$docIntelKey" `
-  "AZURE_COGNITIVE_SERVICES_KEY=$docIntelKey" `
+  "AZURE_COGNITIVE_SERVICES_KEY=$CognitiveServicesKey" `
   "CLASSIFIER_ID=$ClassifierId" `
   "AZURE_OPENAI_ENDPOINT=$OpenAIEndpoint" `
   "AZURE_OPENAI_API_KEY=$OpenAIApiKey" `

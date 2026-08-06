@@ -19,6 +19,10 @@ param azureOpenAIApiKey string
 @description('Azure OpenAI embedding deployment name used by search skillset.')
 param azureOpenAIEmbeddingDeployment string = 'text-embedding-3-small'
 
+@secure()
+@description('Optional Azure AI Services multi-service key for AI Search enrichment. Leave empty to use DefaultCognitiveServices (limited free enrichment).')
+param azureCognitiveServicesKey string = ''
+
 @description('Tags applied to all resources.')
 param tags object = {}
 
@@ -226,15 +230,23 @@ resource searchArtifactsBootstrap 'Microsoft.Resources/deploymentScripts@2023-08
 set -euo pipefail
 
 API_VERSION="2024-07-01"
+D='$'
+
+if [ -n "${AZURE_COGNITIVE_SERVICES_KEY:-}" ]; then
+  COGNITIVE_SERVICES_BLOCK="{\"@odata.type\":\"#Microsoft.Azure.Search.CognitiveServicesByKey\",\"key\":\"$AZURE_COGNITIVE_SERVICES_KEY\"}"
+else
+  COGNITIVE_SERVICES_BLOCK="{\"@odata.type\":\"#Microsoft.Azure.Search.DefaultCognitiveServices\"}"
+fi
 
 put_resource() {
   local url="$1"
   local payload="$2"
-  curl -sS -X PUT "$url" \
-    -H "Content-Type: application/json" \
-    -H "api-key: $SEARCH_ADMIN_KEY" \
-    --data "$payload" \
-    --fail > /dev/null
+  az rest \
+    --method put \
+    --uri "$url" \
+    --headers "Content-Type=application/json" "api-key=$SEARCH_ADMIN_KEY" \
+    --body "$payload" \
+    --only-show-errors > /dev/null
 }
 
 DATASOURCE_PAYLOAD=$(cat <<EOF
@@ -296,7 +308,7 @@ SKILLSET_PAYLOAD=$(cat <<EOF
       "insertPostTag": " ",
       "inputs": [
         {"name": "text", "source": "/document/content"},
-        {"name": "itemsToInsert", "source": "= $(/document/normalized_images/*/text)"}
+        {"name": "itemsToInsert", "source": "= ${D}(/document/normalized_images/*/text)"}
       ],
       "outputs": [{"name": "mergedText", "targetName": "mergedContent"}]
     },
@@ -312,10 +324,7 @@ SKILLSET_PAYLOAD=$(cat <<EOF
       "outputs": [{"name": "embedding", "targetName": "contentVector"}]
     }
   ],
-  "cognitiveServices": {
-    "@odata.type": "#Microsoft.Azure.Search.CognitiveServicesByKey",
-    "key": "$AZURE_COGNITIVE_SERVICES_KEY"
-  }
+  "cognitiveServices": $COGNITIVE_SERVICES_BLOCK
 }
 EOF
 )
@@ -404,7 +413,7 @@ echo "Search artifacts provisioned."
       }
       {
         name: 'AZURE_COGNITIVE_SERVICES_KEY'
-        secureValue: listKeys(documentIntelligence.id, documentIntelligence.apiVersion).key1
+        secureValue: azureCognitiveServicesKey
       }
     ]
   }
@@ -552,7 +561,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         {
           name: 'AZURE_COGNITIVE_SERVICES_KEY'
-          value: listKeys(documentIntelligence.id, documentIntelligence.apiVersion).key1
+          value: azureCognitiveServicesKey
         }
       ]
     }
