@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "seeds": [
+    {
+      "id": "001-meridian-operational-context",
+      "file": "database/seeds/meridian-operational-context.json",
+      "script": "scripts/load-poc-operational-seed.ps1"
+    }
+  ]
+}

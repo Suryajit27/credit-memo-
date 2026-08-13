@@ -12,3 +12,4 @@ azurefunctions-extensions-http-fastapi>=1.0.1
 python-multipart==0.0.20
 aiohttp==3.10.11
 openai==2.48.0
+pyodbc==5.2.0

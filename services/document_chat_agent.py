@@ -7,20 +7,22 @@ import asyncio
 from services.agent_provider import create_agent
 from services.cosmos_tracker import get_request_from_cosmos
 from services.search_indexer import perform_hybrid_search
+from services.sql_loan_context import build_loan_context_tool
 from utils.logging import logger
 
 
 CHAT_SYSTEM_PROMPT = """You are a professional, request-scoped document assistant for a commercial loan underwriting workspace.
 
 Rules:
-1. Answer only from the documents indexed for the current requestId.
-2. If the available evidence is incomplete, say so clearly and ask the user to retry after indexing completes.
-3. Never answer from general knowledge or from unrelated requests.
-4. Use Markdown for structure when helpful.
-5. Every factual statement must use inline citation markers like [1], [2].
-6. Keep the tone concise, professional, and evidence-driven.
-7. If evidence is uncertain, prefer stating that it could not be verified in the indexed documents.
-8. Use no more than 4 tool calls before producing your final answer.
+1. Answer only from documents indexed for the current requestId and the request-scoped SQL operational-context tool.
+2. Use documents for submitted underwriting evidence. Use SQL only for internal workflow, relationship, monitoring, closing-condition, and collateral-control facts.
+3. If the available evidence is incomplete, say so clearly and ask the user to retry after indexing completes.
+4. Never answer from general knowledge or from unrelated requests.
+5. Use Markdown for structure when helpful.
+6. Every factual statement must use inline citation markers like [1], [2]. Cite SQL operational facts as [900].
+7. Keep the tone concise, professional, and evidence-driven.
+8. If evidence is uncertain, prefer stating that it could not be verified in the available sources.
+9. Use no more than 4 tool calls before producing your final answer.
 """
 
 
@@ -113,6 +115,26 @@ def _chat_tools(request_id: str, stream_id: str) -> list[dict]:
     def _search_request_documents(query: str, top: int = 4) -> str:
         return search_request_documents(request_id=request_id, query=query, top=top, stream_id=stream_id)
 
+    loan_context_tool = build_loan_context_tool(request_id)
+    loan_context_handler = loan_context_tool["handler"]
+
+    def _get_loan_context() -> str:
+        start = time.perf_counter()
+        _emit_stream_event(stream_id, "tool_call", {"tool": "get_loan_context"})
+        result = loan_context_handler()
+        _emit_stream_event(
+            stream_id,
+            "tool_result",
+            {
+                "tool": "get_loan_context",
+                "contextAvailable": result.startswith("[900]"),
+                "latencyMs": int((time.perf_counter() - start) * 1000),
+            },
+        )
+        return result
+
+    loan_context_tool["handler"] = _get_loan_context
+
     return [
         {
             "definition": {
@@ -139,7 +161,8 @@ def _chat_tools(request_id: str, stream_id: str) -> list[dict]:
                 "strict": True,
             },
             "handler": _search_request_documents,
-        }
+        },
+        loan_context_tool,
     ]
 
 
@@ -218,9 +241,9 @@ async def stream_document_chat(request_id: str, message: str, history: list[dict
         f"Available documents for this request:\n{doc_manifest}\n\n"
         f"Conversation history:\n{history_text or 'No prior conversation.'}\n\n"
         f"User question:\n{message.strip()}\n\n"
-        "Use the search_request_documents tool to retrieve evidence before answering. "
+        "Use search_request_documents for submitted document evidence. Use get_loan_context for current internal operational context when relevant. "
         "Use no more than 4 tool calls. "
-        "Answer using only the indexed documents for this request. If the evidence is insufficient, say that it is not yet verifiable from the indexed documents and ask the user to retry after indexing completes."
+        "Answer using only the indexed documents and SQL operational context for this request. If the evidence is insufficient, say which source is incomplete or unavailable."
     )
 
     agent = create_agent(CHAT_SYSTEM_PROMPT, tools=_chat_tools(request_id, stream_id), agent_kind="chat")
@@ -244,7 +267,7 @@ async def stream_document_chat(request_id: str, message: str, history: list[dict
                     "error",
                     {
                         "code": "empty_response",
-                        "message": "The assistant could not generate a grounded answer from the indexed documents. Please retry after indexing completes.",
+                        "message": "The assistant could not generate a grounded answer from the available request sources. Please retry after indexing completes.",
                     },
                 )
                 return

@@ -2,13 +2,14 @@
 
 ## Overview
 This project is a loan document classifier and credit memo generator.
-It combines Azure Functions, Azure AI Search, Azure Cosmos DB, Azure Blob Storage, Azure OpenAI, and a React UI.
+It combines Azure Functions, Azure AI Search, Azure Cosmos DB, Azure Blob Storage, Azure OpenAI, Azure SQL Database, and a React UI.
 
 The main flow is:
 1. Upload and classify loan documents.
 2. Index document content into Azure AI Search.
 3. Use an agent to draft a credit memo with retrieved evidence.
 4. Review, approve, regenerate, and finalize memo sections in the UI.
+5. Combine request-scoped document retrieval with SQL operational context when answering or drafting.
 
 ## Main Structure
 
@@ -21,6 +22,7 @@ The main flow is:
   - `credit_memo_agent.py`: analysis phase, drafting, regeneration, and SSE stream flow.
   - `agent_provider.py`: creates the Azure OpenAI agent via Microsoft Agent Framework.
   - `search_indexer.py`: indexer trigger/status logic and hybrid search.
+  - `sql_loan_context.py`: managed-identity Azure SQL access and the request-scoped loan-context function handler.
   - `search_provisioner.py`: provisions AI Search index, skillset, and indexer.
   - `memo_tracker.py`: stores memo state in Cosmos DB.
   - `cosmos_tracker.py`: stores indexing/request telemetry in Cosmos DB.
@@ -65,6 +67,7 @@ The main flow is:
 6. Draft text is streamed back as SSE events.
 7. UI renders the draft and lets the user approve or regenerate sections.
 8. Section regeneration uses `/api/memo/section/regenerate/stream` and emits token deltas in real time.
+9. Foundry can use persistent document-search and SQL loan-context tool schemas; the Function App executes their request-scoped handlers.
 
 ### Request Chat
 1. User opens request chat in the memo screen.
@@ -97,11 +100,19 @@ The main flow is:
 
 ## Environment Portability
 - Primary deployment path is now infrastructure-as-code plus one orchestrator script: `infra/main.bicep` + `scripts/deploy-full.ps1`.
+- SQL-only provisioning, schema migration, seed loading, and Function App SQL configuration are handled by `scripts/deploy-sql.ps1`.
+- SQL migrations are in `database/migrations`; versioned seed definitions are in `database/seeds/seed-manifest.json`.
 - Foundry agent definitions are stored in repo (`config/foundry-agents/*.json`) and bootstrapped automatically via `scripts/bootstrap_foundry_agents.py`.
+- `search_documents` / `search_request_documents` and `get_loan_context` are persistent Foundry function schemas. Keep the matching request-scoped Python handlers registered in `credit_memo_agent.py` and `document_chat_agent.py`; do not re-inject these schemas in the runtime Responses API payload.
 - Deploy flow is parameterized, so moving to a new environment is mostly updating subscription/resource/env values and rerunning the same command.
 - Deploy flow supports both creating new resources and reusing existing resources (`-ReuseExistingResources`) when quota blocks new provisioning.
+- `scripts/deploy-full.ps1` can reuse all existing app resources while provisioning SQL for the first time. Supply `ExistingSqlServerName` and `ExistingSqlDatabaseName` together only after SQL already exists.
 - Search artifacts are applied as create/update operations in deployment flow (no implicit delete/recreate path).
-- `CLASSIFIER_ID` must exist in the configured Document Intelligence account/endpoint for that environment.
+- Deployment requires Azure CLI, Azure Functions Core Tools, Python, Node.js, pnpm, npx, and `sqlcmd`. Install Microsoft Sqlcmd Tools and ensure its installation directory is on `PATH` before running the scripts.
+- The SQL deployment creates a temporary SQL administrator only during logical-server creation, then enables Microsoft Entra-only authentication. The temporary password is generated in memory and is not stored in repo configuration.
+- Azure SQL server creation can be blocked in a region even when other resources can be created there. Check the desired serverless SKU availability first. If needed, run `deploy-sql.ps1` in a supported region, then rerun the full deployment with that server/database supplied as existing resources.
+- `CLASSIFIER_ID` must exist in the configured Document Intelligence account/endpoint for that environment. Custom classifiers are account-specific and are not recreated by Bicep. When reusing a classifier from another resource group, pass both `DocumentIntelligenceResourceGroup` and `ExistingDocumentIntelligenceName` to the deployment script.
+- For the POC, use request ID `sample-meridian-foods-2026` when uploading the Meridian source package; it joins the seeded SQL case to Blob, Cosmos, Search, memo, and chat data.
 
 ## Practical Notes For Future Changes
 - Do not put secrets into this file.
@@ -112,3 +123,8 @@ The main flow is:
 - If a memo record is missing, the UI should see a `not_started` or empty response, not a hard failure.
 - Keep the memo status and indexer status endpoints separate.
 - Prefer the smallest fix that preserves the current UI flow.
+- The Function App must have a system-assigned managed identity before SQL deployment. `deploy-full.ps1` assigns it idempotently.
+- Azure SQL service-principal users must be created with the Function App managed identity **client/application ID**, not its object/principal ID. `deploy-sql.ps1` resolves the client ID through Microsoft Entra and corrects an existing mismatched user mapping.
+- If SQL reports `18456` for `<token-identified principal>` after a correct identity mapping, run `DBCC FLUSHAUTHCACHE` as the Entra SQL administrator and restart the Function App before retrying.
+- `SQL_SERVER`, `SQL_DATABASE`, `SQL_ODBC_DRIVER`, and `SQL_AUTHENTICATION=managed_identity` must be set on the Function App. The SQL context implementation requires the Microsoft ODBC Driver for SQL Server on the Function host and `pyodbc` in `requirements.txt`.
+- The Container App proxy may intentionally return `401` to direct unauthenticated health checks when Azure Static Web Apps authentication is enabled. Treat that as an expected auth gate; the Static Web App root should still return `200`.

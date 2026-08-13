@@ -10,6 +10,7 @@ type ClassifiedFile = { name: string; type: string; confidence: number; pages: n
 const starterFiles: ClassifiedFile[] = [];
 const demoResults: { documentType: string, score: number, blobName: string, content: string }[] = [];
 const CUSTOM_CATEGORY_VALUE = '__custom_category__';
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
 const SUGGESTED_CATEGORIES = [
   'Borrower Profile',
   'Financial Statements',
@@ -26,6 +27,9 @@ const SUGGESTED_CATEGORIES = [
 export default function Home() {
   const [files, setFiles] = useState<ClassifiedFile[]>(starterFiles);
   const { requestId, setRequestId } = useRequestId();
+  const [requestIdInput, setRequestIdInput] = useState('');
+  const [requestIdMode, setRequestIdMode] = useState<'auto' | 'manual'>('auto');
+  const [requestIdError, setRequestIdError] = useState('');
   const [classifying, setClassifying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [query, setQuery] = useState('');
@@ -51,6 +55,8 @@ export default function Home() {
     setClassifying(true);
     setFiles([]); 
     setRequestId('');
+    setRequestIdError('');
+    if (requestIdMode === 'auto') setRequestIdInput('');
     try {
       const filesToUpload: File[] = [];
       if (selected.name.toLowerCase().endsWith('.zip')) {
@@ -116,9 +122,15 @@ export default function Home() {
   const handleUploadClassified = async () => {
     const filesToUpload = files.filter(f => f.rawFile && (f.state === 'classified' || f.state === 'review'));
     if (!filesToUpload.length) return;
+
+    const suppliedRequestId = requestIdMode === 'manual' ? requestIdInput.trim() : '';
+    if (suppliedRequestId && !REQUEST_ID_PATTERN.test(suppliedRequestId)) {
+      setRequestIdError('Use 1-100 letters, numbers, hyphens, or underscores.');
+      return;
+    }
     
     setUploading(true);
-    const nextRequest = `IDX-${new Date().toISOString().slice(2, 10).replaceAll('-', '')}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+    const nextRequest = suppliedRequestId || `IDX-${new Date().toISOString().slice(2, 10).replaceAll('-', '')}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     setRequestId(nextRequest);
     
     try {
@@ -200,7 +212,7 @@ export default function Home() {
             <label className={`group flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3.5 py-2.5 text-xs font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 ${classifying || uploading ? 'pointer-events-none opacity-70' : ''}`} data-testid="button-upload-package"><UploadCloud size={15} /> {classifying ? 'Classifying…' : 'Select package'}<input className="sr-only" type="file" accept=".zip,.pdf,.xlsx" onChange={handleSelectFiles} data-testid="input-upload-package" /></label>
           </div>
           <div className="grid gap-3 border-b border-border bg-[#f4f0e7] px-5 py-4 md:grid-cols-[1fr_auto] md:items-center md:px-6">
-            <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-md border border-[#dfd4bd] bg-card"><FileArchive size={20} className="text-[#a17734]" /></div><div><div className="text-sm font-semibold">{classifying ? 'Classifying new package…' : (requestId ? 'Uploaded Package' : files.length ? 'Classified Package' : 'No package selected')}</div><div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">{requestId || 'Pending upload'}</div></div></div>
+            <div className="space-y-3"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-md border border-[#dfd4bd] bg-card"><FileArchive size={20} className="text-[#a17734]" /></div><div><div className="text-sm font-semibold">{classifying ? 'Classifying new package…' : (requestId ? 'Uploaded Package' : files.length ? 'Classified Package' : 'No package selected')}</div><div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">{requestId || 'Pending upload'}</div></div></div><div><label htmlFor="request-id-for-upload" className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">Request ID <span className="normal-case tracking-normal">optional</span></label><div className="mt-1 flex max-w-md items-center gap-2"><input id="request-id-for-upload" value={requestIdInput} onChange={(event) => { const value = event.target.value; setRequestIdInput(value); setRequestIdMode(value.trim() ? 'manual' : 'auto'); setRequestIdError(''); }} placeholder="Generated automatically if blank" disabled={classifying || uploading} className="h-8 min-w-0 flex-1 rounded border border-input bg-background px-2.5 font-mono text-[11px] outline-none focus:border-[#a17734] focus:ring-2 focus:ring-[#a17734]/15 disabled:opacity-60" data-testid="input-request-id-for-upload" /><span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">{requestIdMode === 'manual' ? 'Provided' : 'Auto'}</span></div>{requestIdError ? <div className="mt-1 text-[10px] text-destructive">{requestIdError}</div> : <div className="mt-1 text-[10px] text-muted-foreground">Use <code>sample-meridian-foods-2026</code> for the seeded SQL + RAG demo.</div>}</div></div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               {canUpload ? (
                  <button onClick={handleUploadClassified} className="flex items-center gap-1.5 rounded-md bg-[#39745e] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#274f41]"><Upload size={14} /> Commit & Upload</button>

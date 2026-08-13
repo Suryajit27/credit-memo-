@@ -71,6 +71,7 @@ This repo includes a full Infrastructure as Code path that provisions and deploy
 
 - Bicep template: `infra/main.bicep`
 - Orchestrator script: `scripts/deploy-full.ps1`
+- Azure SQL deployment and migration script: `scripts/deploy-sql.ps1`
 - Foundry agent configs: `config/foundry-agents/memo-agent.json`, `config/foundry-agents/chat-agent.json`
 
 Quickstart:
@@ -88,6 +89,20 @@ Quickstart:
 Full guide:
 
 - `deployment/ONE_CLICK_DEPLOY.md`
+
+### Azure SQL Only
+
+`deploy-sql.ps1` provisions the POC Azure SQL logical server/database, applies versioned migrations from `database/migrations`, and applies configured seed loaders from `database/seeds/seed-manifest.json`. It uses Microsoft Entra authentication and requires the `sqlcmd` command-line tool.
+
+```powershell
+./scripts/deploy-sql.ps1 `
+  -SubscriptionId "<subscription-id>" `
+  -FunctionAppName "<existing-function-app-name>"
+```
+
+When deploying through a service principal rather than an interactive Entra user, also supply `-SqlEntraAdministratorObjectId` and `-SqlEntraAdministratorLogin`.
+
+The seeded Meridian demonstration case is linked to request ID `sample-meridian-foods-2026`. Use that request ID when uploading the matching RAG documents to demonstrate combined document and SQL context.
 
 ## Git And Reproducibility Checklist
 

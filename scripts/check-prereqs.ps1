@@ -9,7 +9,8 @@ $checks = @(
   @{ Name = "Python"; Command = "python"; VersionArgs = @("--version") },
   @{ Name = "Node.js"; Command = "node"; VersionArgs = @("--version") },
   @{ Name = "pnpm"; Command = "pnpm"; VersionArgs = @("--version") },
-  @{ Name = "npx"; Command = "npx"; VersionArgs = @("--version") }
+  @{ Name = "npx"; Command = "npx"; VersionArgs = @("--version") },
+  @{ Name = "SQL Server command-line tools"; Command = "sqlcmd"; VersionArgs = @("-?") }
 )
 
 $missing = @()

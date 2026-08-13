@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from utils.logging import logger
 from services.agent_provider import create_agent
 from services.search_indexer import perform_hybrid_search
+from services.sql_loan_context import build_loan_context_tool
 from services.cosmos_tracker import get_request_from_cosmos
 from services.memo_tracker import (
     init_memo_record,
@@ -44,11 +45,11 @@ IMPORTANT: The "Recommendation" section should always be included at the end."""
 DRAFTING_SYSTEM_PROMPT = """You are an expert commercial loan underwriter drafting a formal Credit Memo.
 
 RULES:
-1. Use the provided evidence context from indexed documents as your factual source.
+1. Use indexed documents for submitted underwriting evidence. Use the SQL operational-context tool for current bank workflow, relationship, monitoring, closing-condition, and collateral-control facts.
 2. Every factual statement or financial metric must include inline numeric citations like [1], [2].
 3. Never output bracketed file citations such as [CreditReport..., p.1] or any non-numeric bracket format.
 4. Citation markers must be numeric only and must map to evidence excerpts returned by the tool.
-5. At the end of the section, append a 'Footnotes' block with one line per citation in the exact form: [n] <document name>, p.<page>.
+5. Cite SQL operational facts as [900]. At the end of the section, append a 'Footnotes' block. Document footnotes use [n] <document name>, p.<page>; SQL uses [900] SQL Server current operational context.
 6. Keep citations tightly attached to the referenced text (no extra words inside citation brackets).
 7. Maintain rigorous professional tone with clear subheadings.
 8. Use no more than 6 tool calls before producing your final section draft."""
@@ -97,7 +98,8 @@ def _memo_tools(request_id: str) -> list[dict]:
                 "strict": True,
             },
             "handler": _search_documents,
-        }
+        },
+        build_loan_context_tool(request_id),
     ]
 
 
@@ -190,6 +192,7 @@ async def run_analysis_phase(request_id: str) -> tuple:
         f"{json.dumps(doc_list, indent=2)}\n\n"
         f"Document types present: {doc_types}\n\n"
         f"Full taxonomy:\n{json.dumps(TAXONOMY, indent=2)}\n\n"
+        "Use get_loan_context if internal monitoring, closing conditions, or collateral controls affect section selection. "
         "Decide which sections are relevant and return a JSON array."
     )
 
@@ -224,11 +227,11 @@ async def draft_section(request_id: str, section_name: str) -> dict:
         f"Section to draft: {section_name}\n"
         f"Available document types: {doc_types}\n"
         f"Thread context from prior sections:\n{thread_context[:2000]}\n\n"
-        "Use the search_documents tool to gather evidence for this section before drafting.\n"
+        "Use search_documents for submitted evidence. Use get_loan_context when internal operational context is relevant.\n"
         "Use no more than 6 tool calls.\n"
         "Write Markdown with strict numeric inline citations only (for example [1], [2]).\n"
         "Do not use document-name citations inside brackets.\n"
-        "End with a Footnotes block in the exact format: [n] <document name>, p.<page>."
+        "End with a Footnotes block. Document citations use [n] <document name>, p.<page>; SQL uses [900] SQL Server current operational context."
     )
 
     system_prompt = DRAFTING_SYSTEM_PROMPT + f"\nCurrent section: {section_name}"
@@ -246,7 +249,7 @@ async def draft_section(request_id: str, section_name: str) -> dict:
 def _build_regeneration_prompts(section_name: str, doc_types: list[str], reviewer_notes: str, regen_count: int) -> tuple[str, str]:
     system = (
         f"You are an expert commercial loan underwriter revising the '{section_name}' section based on reviewer feedback.\n"
-        f"Use the search_documents tool to find any additional evidence needed.\n"
+        f"Use search_documents for additional document evidence and get_loan_context for current operational context.\n"
         f"Regeneration attempt #{regen_count}/2.\n"
         f"Reviewer feedback: {reviewer_notes or 'Please refine detail and clarity.'}\n"
         "Write Markdown with strict numeric inline citations only (for example [1], [2])."
@@ -255,7 +258,7 @@ def _build_regeneration_prompts(section_name: str, doc_types: list[str], reviewe
     user += "\nUse no more than 6 tool calls."
     user += "\nEvery factual statement or financial metric must include inline numeric citations only (e.g., [1], [2])."
     user += "\nDo not use document-name citations inside brackets."
-    user += "\nEnd with a Footnotes block in the exact format: [n] <document name>, p.<page>."
+    user += "\nEnd with a Footnotes block. Document citations use [n] <document name>, p.<page>; SQL uses [900] SQL Server current operational context."
     return system, user
 
 
@@ -413,11 +416,11 @@ async def stream_full_drafting_flow(request_id: str):
             f"Section to draft: {sec_name}\n"
             f"Available document types: {doc_types}\n"
             f"Thread context from prior sections:\n{thread_context[:2000]}\n\n"
-            "Use the search_documents tool to gather evidence for this section before drafting.\n"
+            "Use search_documents for submitted evidence. Use get_loan_context when internal operational context is relevant.\n"
             "Use no more than 6 tool calls.\n"
             "Write Markdown with strict numeric inline citations only (for example [1], [2]).\n"
             "Do not use document-name citations inside brackets.\n"
-            "End with a Footnotes block in the exact format: [n] <document name>, p.<page>."
+            "End with a Footnotes block. Document citations use [n] <document name>, p.<page>; SQL uses [900] SQL Server current operational context."
         )
         system_prompt = DRAFTING_SYSTEM_PROMPT + f"\nCurrent section: {sec_name}"
         agent = create_agent(system_prompt, tools=_memo_tools(request_id), agent_kind="memo")

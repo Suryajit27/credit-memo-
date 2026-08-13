@@ -65,6 +65,19 @@ param blobDocumentsContainerName string = 'loan-documents'
 @description('Blob container for finalized memo files.')
 param blobMemoContainerName string = 'loan-credit-memos'
 
+@description('Microsoft Entra administrator object ID for the Azure SQL logical server.')
+param sqlEntraAdministratorObjectId string
+
+@description('Microsoft Entra administrator display name or sign-in name for the Azure SQL logical server.')
+param sqlEntraAdministratorLogin string
+
+@description('Microsoft Entra tenant ID for the Azure SQL logical server administrator.')
+param sqlEntraAdministratorTenantId string
+
+@secure()
+@description('Temporary SQL administrator password used while Azure SQL is created before Entra-only authentication is enabled.')
+param sqlAdministratorPassword string
+
 var suffix = toLower(uniqueString(resourceGroup().id, environmentName))
 var storageAccountName = toLower('cmst${take(suffix, 20)}')
 var cosmosAccountName = toLower('cm-cosmos-${take(suffix, 12)}')
@@ -82,6 +95,19 @@ var searchDatasourceName = 'loan-documents-datasource'
 var searchIndexName = 'loan-documents-index'
 var searchSkillsetName = 'loan-documents-skillset'
 var searchIndexerName = 'loan-documents-indexer'
+
+module sql 'modules/sql.bicep' = {
+  name: 'sql'
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+    entraAdministratorObjectId: sqlEntraAdministratorObjectId
+    entraAdministratorLogin: sqlEntraAdministratorLogin
+    entraAdministratorTenantId: sqlEntraAdministratorTenantId
+    sqlAdministratorPassword: sqlAdministratorPassword
+  }
+}
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
@@ -563,6 +589,22 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AZURE_COGNITIVE_SERVICES_KEY'
           value: azureCognitiveServicesKey
         }
+        {
+          name: 'SQL_SERVER'
+          value: sql.outputs.sqlServerFullyQualifiedDomainName
+        }
+        {
+          name: 'SQL_DATABASE'
+          value: sql.outputs.sqlDatabaseName
+        }
+        {
+          name: 'SQL_ODBC_DRIVER'
+          value: 'ODBC Driver 18 for SQL Server'
+        }
+        {
+          name: 'SQL_AUTHENTICATION'
+          value: 'managed_identity'
+        }
       ]
     }
   }
@@ -691,6 +733,9 @@ output proxyContainerAppName string = proxyContainerApp.name
 output staticWebAppName string = staticWebApp.name
 output containerRegistryName string = containerRegistry.name
 output documentIntelligenceName string = documentIntelligence.name
+output sqlServerName string = sql.outputs.sqlServerName
+output sqlDatabaseName string = sql.outputs.sqlDatabaseName
+output sqlServerFullyQualifiedDomainName string = sql.outputs.sqlServerFullyQualifiedDomainName
 output functionApiBaseUrl string = 'https://${functionApp.name}.azurewebsites.net/api'
 output proxyBaseUrl string = 'https://${proxyContainerApp.properties.configuration.ingress.fqdn}'
 output staticWebAppUrl string = 'https://${staticWebApp.properties.defaultHostname}'

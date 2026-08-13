@@ -1,0 +1,63 @@
+{
+  "caseId": "d504cd03-70fd-4b75-8818-cba75295f70a",
+  "requestId": "sample-meridian-foods-2026",
+  "loanNumber": "MF-2026-001",
+  "borrowerName": "Meridian Foods LLC",
+  "workflow": {
+    "loanStage": "Credit committee review",
+    "relationshipManager": "Michael Torres",
+    "portfolioManager": "Priya Shah",
+    "nextCreditCommitteeDate": "2026-08-20"
+  },
+  "relationship": {
+    "relationshipSince": "2018-06-01",
+    "operatingAccountStatus": "Primary operating account active",
+    "averageOperatingBalance": 1180000.00,
+    "treasuryManagementEnabled": true,
+    "merchantServicesEnabled": true
+  },
+  "monitoring": {
+    "internalRiskGrade": "Pass - 4",
+    "annualReviewDueDate": "2026-11-30",
+    "latestMonitoringDate": "2026-07-31",
+    "monitoringStatus": "Pre-close monitoring active",
+    "watchlistStatus": "Not watchlisted"
+  },
+  "conditions": [
+    {
+      "category": "Insurance",
+      "description": "Obtain replacement-cost property insurance with the bank named as lender loss payee.",
+      "owner": "Loan Operations",
+      "status": "Pending",
+      "dueDate": "2026-08-18"
+    },
+    {
+      "category": "Lien Perfection",
+      "description": "File UCC-1 financing statement for the new refrigeration equipment after final equipment schedules are received.",
+      "owner": "Collateral Operations",
+      "status": "Pending",
+      "dueDate": "2026-08-21"
+    },
+    {
+      "category": "Access Agreement",
+      "description": "Receive the executed mortgagee access agreement for the cold-storage equipment location.",
+      "owner": "Relationship Management",
+      "status": "In progress",
+      "dueDate": "2026-08-19"
+    }
+  ],
+  "collateralControls": [
+    {
+      "controlType": "Equipment schedule",
+      "status": "In review",
+      "detail": "Vendor equipment schedule has been received and is awaiting collateral operations reconciliation.",
+      "targetDate": "2026-08-15"
+    },
+    {
+      "controlType": "Insurance tracking",
+      "status": "Pending",
+      "detail": "Policy evidence is required before funding and will be monitored in the collateral tracking queue.",
+      "targetDate": "2026-08-18"
+    }
+  ]
+}
