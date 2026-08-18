@@ -10,19 +10,22 @@ The main flow is:
 3. Use an agent to draft a credit memo with retrieved evidence.
 4. Review, approve, regenerate, and finalize memo sections in the UI.
 5. Combine request-scoped document retrieval with SQL operational context when answering or drafting.
+6. Let portfolio users run constrained, read-only operational reporting queries across approved Azure SQL views.
 
 ## Main Structure
 
 ### Backend
 - `function_app.py`
   - Azure Functions entry point.
-  - Hosts upload, search, memo, stream, finalize, and indexer-status endpoints.
+  - Hosts upload, search, memo, stream, finalize, indexer-status, and portfolio-reporting endpoints.
   - Streams SSE responses from the drafting agent.
 - `services/`
   - `credit_memo_agent.py`: analysis phase, drafting, regeneration, and SSE stream flow.
   - `agent_provider.py`: creates the Azure OpenAI agent via Microsoft Agent Framework.
   - `search_indexer.py`: indexer trigger/status logic and hybrid search.
   - `sql_loan_context.py`: managed-identity Azure SQL access and the request-scoped loan-context function handler.
+  - `admin_reporting_agent.py`: portfolio-wide reporting chat and SSE stream flow.
+  - `reporting_schema.py`: loads and exposes the approved reporting view and column catalog.
   - `search_provisioner.py`: provisions AI Search index, skillset, and indexer.
   - `memo_tracker.py`: stores memo state in Cosmos DB.
   - `cosmos_tracker.py`: stores indexing/request telemetry in Cosmos DB.
@@ -38,8 +41,9 @@ The main flow is:
   - Main React app used for the current UI.
   - `src/pages/home.tsx`: document intake, search, and indexer status.
   - `src/pages/memo.tsx`: memo drafting/review screen, live agent stream, and section regeneration stream.
+  - `src/pages/portfolio-reporting.tsx`: portfolio reporting page using the shared streaming chat widget.
   - `src/components/workspace-shell.tsx`: layout and sidebar status widgets.
-  - `src/components/request-chat-widget.tsx`: request-scoped streaming chat tied to indexed evidence.
+  - `src/components/request-chat-widget.tsx`: shared request-scoped and portfolio-reporting streaming chat UI.
   - `src/lib/request-id-context.tsx`: request ID sharing across UI areas.
 - `actual_ui/Code-Generation-UI/artifacts/api-server/`
   - Express proxy that forwards UI requests to Azure Functions.
@@ -75,6 +79,15 @@ The main flow is:
 3. Azure Functions performs request-scoped retrieval and answer synthesis.
 4. SSE tokens and tool activity are streamed back to the chat widget.
 
+### Portfolio Reporting
+1. User opens the Portfolio reporting workspace tab at `/portfolio-reporting`.
+2. The shared chat widget calls `/api/portfolio-reporting/stream` without a `requestId`.
+3. The Express proxy forwards the stream to the Function endpoint `/api/portfolio-reporting/stream`.
+4. `admin_reporting_agent.py` embeds `config/reporting-schema.json` in the agent request and registers `get_reporting_schema` plus `run_admin_report`.
+5. The agent writes one constrained `SELECT` query against the approved reporting views.
+6. The backend streams the generated SQL as an SSE `tool_call` event before the answer tokens, so the UI thinking trace shows the executed query.
+7. The SQL result is summarized with `[910]` citations.
+
 ### Finalization
 1. All sections must be approved.
 2. Final memo is written to Blob Storage.
@@ -97,12 +110,17 @@ The main flow is:
 - Citation badges are styled as small boxy markers and should remain tightly attached to the text.
 - Current UX language intentionally emphasizes "credit memo narratives" across intake, drafting, and chat.
 - Architecture diagram source is stored at `architecture/credit-memo-architecture.drawio`.
+- Do not use an Azure Functions route beginning with `/admin/`; the Functions host reserves that path. Use `/portfolio-reporting/stream` for the portfolio reporting backend endpoint.
+- `config/reporting-schema.json` is the agent's versioned SQL contract. Keep its approved views and exact columns aligned with `database/migrations/002_poc_admin_reporting.sql` and later reporting migrations.
+- `run_admin_report` allows only a single read-only `SELECT` over approved `reporting.*` views, with a 10-second connection timeout and a 100-row result limit.
+- Generic `status` is a domain-specific alias in the reporting views. Prefer `loan_stage`, `monitoring_status`, `condition_status`, or `control_status` when the question calls for that specific meaning.
 
 ## Environment Portability
 - Primary deployment path is now infrastructure-as-code plus one orchestrator script: `infra/main.bicep` + `scripts/deploy-full.ps1`.
 - SQL-only provisioning, schema migration, seed loading, and Function App SQL configuration are handled by `scripts/deploy-sql.ps1`.
 - SQL migrations are in `database/migrations`; versioned seed definitions are in `database/seeds/seed-manifest.json`.
-- Foundry agent definitions are stored in repo (`config/foundry-agents/*.json`) and bootstrapped automatically via `scripts/bootstrap_foundry_agents.py`.
+- Foundry agent definitions are stored in repo (`config/foundry-agents/*.json`) and bootstrapped automatically via `scripts/bootstrap_foundry_agents.py`, including `admin-reporting-agent.json`.
+- Portfolio reporting uses migrations `002_poc_admin_reporting.sql` and `003_poc_admin_reporting_status_aliases.sql` to create the approved reporting views and generic status aliases.
 - `search_documents` / `search_request_documents` and `get_loan_context` are persistent Foundry function schemas. Keep the matching request-scoped Python handlers registered in `credit_memo_agent.py` and `document_chat_agent.py`; do not re-inject these schemas in the runtime Responses API payload.
 - Deploy flow is parameterized, so moving to a new environment is mostly updating subscription/resource/env values and rerunning the same command.
 - Deploy flow supports both creating new resources and reusing existing resources (`-ReuseExistingResources`) when quota blocks new provisioning.
@@ -127,4 +145,5 @@ The main flow is:
 - Azure SQL service-principal users must be created with the Function App managed identity **client/application ID**, not its object/principal ID. `deploy-sql.ps1` resolves the client ID through Microsoft Entra and corrects an existing mismatched user mapping.
 - If SQL reports `18456` for `<token-identified principal>` after a correct identity mapping, run `DBCC FLUSHAUTHCACHE` as the Entra SQL administrator and restart the Function App before retrying.
 - `SQL_SERVER`, `SQL_DATABASE`, `SQL_ODBC_DRIVER`, and `SQL_AUTHENTICATION=managed_identity` must be set on the Function App. The SQL context implementation requires the Microsoft ODBC Driver for SQL Server on the Function host and `pyodbc` in `requirements.txt`.
+- If portfolio reporting returns an invalid column error, update the reporting schema catalog and the reporting views together, then redeploy the Function App and bootstrap the Foundry reporting agent.
 - The Container App proxy may intentionally return `401` to direct unauthenticated health checks when Azure Static Web Apps authentication is enabled. Treat that as an expected auth gate; the Static Web App root should still return `200`.

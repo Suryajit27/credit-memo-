@@ -21,10 +21,11 @@ type ChatMessage = {
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 type RequestChatWidgetProps = {
-  requestId: string;
+  requestId?: string;
+  mode?: 'request' | 'portfolio';
 };
 
-export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
+export function RequestChatWidget({ requestId = '', mode = 'request' }: RequestChatWidgetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -46,13 +47,14 @@ export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
 
   const indexStatus = indexer.data?.indexingStatus ?? (requestId ? 'pending' : 'idle');
   const indexMessage = indexer.data?.indexingErrors?.length ? indexer.data.indexingErrors.join('; ') : undefined;
+  const portfolioMode = mode === 'portfolio';
 
   useEffect(() => {
     setMessages([]);
     setDraft('');
     setError('');
     setSending(false);
-  }, [requestId]);
+  }, [requestId, mode]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -60,7 +62,7 @@ export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
 
   const sendMessage = async () => {
     const text = draft.trim();
-    if (!requestId || !text || sending) return;
+    if ((!portfolioMode && !requestId) || !text || sending) return;
 
     setError('');
     setDraft('');
@@ -77,7 +79,7 @@ export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
       role: 'assistant',
       content: '',
       status: 'streaming',
-      activity: ['Starting request-scoped assistant...'],
+      activity: [portfolioMode ? 'Starting portfolio reporting assistant...' : 'Starting request-scoped assistant...'],
     };
 
     const appendAssistantActivity = (line: string) => {
@@ -96,15 +98,15 @@ export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
     setSending(true);
 
     try {
-      const response = await fetch('/api/chat/stream', {
+      const response = await fetch(portfolioMode ? '/api/portfolio-reporting/stream' : '/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, message: text, history }),
+        body: JSON.stringify(portfolioMode ? { message: text, history } : { requestId, message: text, history }),
       });
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error || 'Unable to start request-scoped chat.');
+        throw new Error(payload?.error || `Unable to start ${portfolioMode ? 'portfolio reporting' : 'request-scoped'} chat.`);
       }
 
       if (!response.body) throw new Error('No response stream available.');
@@ -178,7 +180,7 @@ export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
             }
 
             if (evt === 'error') {
-              const messageText = payload.message || 'The request-scoped chat could not answer right now.';
+              const messageText = payload.message || `The ${portfolioMode ? 'portfolio reporting' : 'request-scoped'} chat could not answer right now.`;
               setError(messageText);
               setMessages((current) =>
                 current.map((message) =>
@@ -225,38 +227,50 @@ export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <MessageSquare size={16} className="text-[#a17734]" /> Narrative chat
+            <MessageSquare size={16} className="text-[#a17734]" /> {portfolioMode ? 'Portfolio reporting' : 'Narrative chat'}
           </div>
           <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
-            Scoped to this narrative request only
+            {portfolioMode ? 'Portfolio-wide SQL reporting' : 'Scoped to this narrative request only'}
           </div>
         </div>
-        <span
-          className={`rounded-full px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] ${
-            indexStatus === 'succeeded'
-              ? 'bg-[#d0e2d5] text-[#39745e]'
-              : indexStatus === 'running'
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-muted text-muted-foreground'
-          }`}
-        >
-          {indexStatus}
-        </span>
+        {portfolioMode ? (
+          <span className="rounded-full bg-[#d0e2d5] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-[#39745e]">portfolio</span>
+        ) : (
+          <span
+            className={`rounded-full px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] ${
+              indexStatus === 'succeeded'
+                ? 'bg-[#d0e2d5] text-[#39745e]'
+                : indexStatus === 'running'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {indexStatus}
+          </span>
+        )}
       </div>
 
       <div className="mt-4 rounded-md border border-dashed border-border bg-[#faf8f2] px-3 py-2 text-[11px] leading-5 text-muted-foreground">
         <div className="flex items-center gap-2 font-medium text-foreground">
           <Sparkles size={13} className="text-[#d29439]" />
-          Evidence-linked narrative answers only
+          {portfolioMode ? 'Read-only operational reporting' : 'Evidence-linked narrative answers only'}
         </div>
-        <div className="mt-1">{requestId ? `Working on narrative request ${requestId}.` : 'Load a request to start chatting with indexed narrative evidence.'}</div>
-        {indexMessage ? <div className="mt-1 text-[#8d6a2f]">{indexMessage}</div> : null}
+        <div className="mt-1">
+          {portfolioMode
+            ? 'Ask cross-portfolio questions about cases, monitoring, conditions, relationships, and collateral controls.'
+            : requestId
+              ? `Working on narrative request ${requestId}.`
+              : 'Load a request to start chatting with indexed narrative evidence.'}
+        </div>
+        {!portfolioMode && indexMessage ? <div className="mt-1 text-[#8d6a2f]">{indexMessage}</div> : null}
       </div>
 
       <div className="mt-4 max-h-[360px] space-y-3 overflow-auto rounded-md border border-border bg-[#f9f7f3] p-3">
         {messages.length === 0 ? (
           <div className="rounded-md border border-dashed border-border bg-white px-4 py-8 text-center text-xs text-muted-foreground">
-            Ask about borrower details, terms, collateral, or any other evidence for the memo narrative in this request.
+            {portfolioMode
+              ? 'Ask about pipeline volume, watchlist status, overdue conditions, or collateral control exceptions across the portfolio.'
+              : 'Ask about borrower details, terms, collateral, or any other evidence for the memo narrative in this request.'}
           </div>
         ) : null}
 
@@ -331,16 +345,16 @@ export function RequestChatWidget({ requestId }: RequestChatWidgetProps) {
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={requestId ? 'Ask a question about narrative evidence…' : 'Load a request first…'}
-          disabled={!requestId || sending}
+          placeholder={portfolioMode ? 'Ask a portfolio reporting question…' : requestId ? 'Ask a question about narrative evidence…' : 'Load a request first…'}
+          disabled={(!portfolioMode && !requestId) || sending}
           className="min-h-[94px] resize-none bg-white text-sm"
         />
 
         <div className="flex items-center justify-between gap-3">
           <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
-            {requestId ? `Request ${requestId}` : 'No active request'}
+            {portfolioMode ? 'Portfolio reporting' : requestId ? `Request ${requestId}` : 'No active request'}
           </div>
-          <Button type="button" onClick={() => void sendMessage()} disabled={!requestId || !draft.trim() || sending} size="sm">
+          <Button type="button" onClick={() => void sendMessage()} disabled={(!portfolioMode && !requestId) || !draft.trim() || sending} size="sm">
             {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             {sending ? 'Sending' : 'Send'}
           </Button>

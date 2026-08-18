@@ -72,7 +72,7 @@ This repo includes a full Infrastructure as Code path that provisions and deploy
 - Bicep template: `infra/main.bicep`
 - Orchestrator script: `scripts/deploy-full.ps1`
 - Azure SQL deployment and migration script: `scripts/deploy-sql.ps1`
-- Foundry agent configs: `config/foundry-agents/memo-agent.json`, `config/foundry-agents/chat-agent.json`
+- Foundry agent configs: `config/foundry-agents/memo-agent.json`, `config/foundry-agents/chat-agent.json`, `config/foundry-agents/admin-reporting-agent.json`
 
 Quickstart:
 
@@ -103,6 +103,26 @@ Full guide:
 When deploying through a service principal rather than an interactive Entra user, also supply `-SqlEntraAdministratorObjectId` and `-SqlEntraAdministratorLogin`.
 
 The seeded Meridian demonstration case is linked to request ID `sample-meridian-foods-2026`. Use that request ID when uploading the matching RAG documents to demonstrate combined document and SQL context.
+
+## Portfolio Reporting Agent (POC)
+
+`POST /api/portfolio-reporting/stream` streams portfolio-wide reporting answers. Its `portfolio-reporting-agent` uses the `run_admin_report` tool, which accepts a single read-only `SELECT` statement over these curated Azure SQL views:
+
+- `reporting.vw_loan_cases`
+- `reporting.vw_relationship_profiles`
+- `reporting.vw_loan_monitoring`
+- `reporting.vw_credit_conditions`
+- `reporting.vw_collateral_controls`
+
+Example request through the proxy:
+
+```bash
+curl -N -X POST http://localhost:3000/api/portfolio-reporting/stream \
+  -H "Content-Type: application/json" \
+  -d "{\"message\":\"How many cases are in each loan stage?\"}"
+```
+
+This is intentionally a POC implementation. The endpoint has no application-level admin role check, and the Function App managed identity is shared by all backend agent flows. The tool restricts statements to `SELECT`, approved reporting views, a 10-second timeout, and at most 100 returned rows, but its regular-expression validation is not a production-grade SQL authorization boundary. Before production use, add authenticated role enforcement, a separate runtime identity and database role, a SQL AST validator, row-level/tenant controls, query auditing, result-size controls enforced in SQL, and data classification or masking for sensitive fields.
 
 ## Git And Reproducibility Checklist
 

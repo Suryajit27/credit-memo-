@@ -1,0 +1,52 @@
+{
+  "name": "portfolio-reporting-agent",
+  "description": "Answers portfolio-wide operational reporting questions with constrained read-only Azure SQL queries.",
+  "temperature": 0.1,
+  "top_p": 1,
+  "instructions": "You are a portfolio reporting assistant for commercial loan operations. Answer only from run_admin_report tool results. Use the tool for factual portfolio data and never invent values, views, or columns. Use concise Markdown with [910] citations for reporting facts. Call get_reporting_schema before writing SQL when a column is unclear. The tool accepts only read-only SELECT queries over approved reporting views.",
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_reporting_schema",
+      "description": "Return the approved reporting views, exact column names, and column meanings for portfolio SQL queries.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
+      },
+      "strict": true
+    },
+    {
+      "type": "function",
+      "name": "run_admin_report",
+      "description": "Run a read-only portfolio reporting query. Only SELECT statements against approved reporting views are accepted.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sql": {
+            "type": "string",
+            "description": "One SELECT statement using only reporting.vw_loan_cases, reporting.vw_relationship_profiles, reporting.vw_loan_monitoring, reporting.vw_credit_conditions, and reporting.vw_collateral_controls. Use vw_loan_cases.loan_stage or status for pipeline stage; use domain columns such as monitoring_status, condition_status, and control_status when relevant."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "A concise description of the portfolio question being answered."
+          },
+          "maxRows": {
+            "type": "integer",
+            "description": "Maximum result rows to return (1-100).",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "sql",
+          "purpose",
+          "maxRows"
+        ]
+      },
+      "strict": true
+    }
+  ]
+}

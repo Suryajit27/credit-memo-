@@ -6,6 +6,7 @@ import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { WorkspaceShell } from '@/components/workspace-shell';
 import Home from '@/pages/home';
 import Memo from '@/pages/memo';
+import PortfolioReporting from '@/pages/portfolio-reporting';
 import { RequestIdProvider } from '@/lib/request-id-context';
 
 const queryClient = new QueryClient();
@@ -16,6 +17,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/memo" component={Memo} />
+        <Route path="/portfolio-reporting" component={PortfolioReporting} />
         <Route component={NotFound} />
       </Switch>
     </WorkspaceShell>

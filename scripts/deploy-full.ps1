@@ -19,6 +19,7 @@ Param(
   [string] $FoundryApiKey = "",
   [string] $FoundryMemoAgentName = "credit-memo-agent",
   [string] $FoundryChatAgentName = "request-chat-agent",
+  [string] $FoundryAdminReportingAgentName = "portfolio-reporting-agent",
   [switch] $ReuseExistingResources,
   [string] $ExistingFunctionAppName = "",
   [string] $ExistingProxyContainerAppName = "",
@@ -257,7 +258,8 @@ az functionapp config appsettings set --resource-group $ResourceGroup --name $fu
   "FOUNDRY_PROJECT_ENDPOINT=$FoundryProjectEndpoint" `
   "FOUNDRY_API_KEY=$FoundryApiKey" `
   "FOUNDRY_MEMO_AGENT_NAME=$FoundryMemoAgentName" `
-  "FOUNDRY_CHAT_AGENT_NAME=$FoundryChatAgentName" | Out-Null
+  "FOUNDRY_CHAT_AGENT_NAME=$FoundryChatAgentName" `
+  "FOUNDRY_ADMIN_REPORTING_AGENT_NAME=$FoundryAdminReportingAgentName" | Out-Null
 Assert-LastExitCode -Step "Configuring Function App settings"
 
 "Deploying Azure Functions code..."
@@ -345,6 +347,7 @@ if (-not $SkipFoundryBootstrap) {
     --model-deployment "$OpenAIDeploymentName" `
     --memo-config (Join-Path $repoRoot "config/foundry-agents/memo-agent.json") `
     --chat-config (Join-Path $repoRoot "config/foundry-agents/chat-agent.json") `
+    --reporting-config (Join-Path $repoRoot "config/foundry-agents/admin-reporting-agent.json") `
     --json-out "$bootstrapJsonFile"
   Assert-LastExitCode -Step "Bootstrapping Foundry agents"
   if (-not (Test-Path -LiteralPath $bootstrapJsonFile)) {
@@ -354,15 +357,19 @@ if (-not $SkipFoundryBootstrap) {
   $agentResult = (Get-Content -LiteralPath $bootstrapJsonFile -Raw) | ConvertFrom-Json
   $memoAgentId = [string]$agentResult.memoAgent.id
   $chatAgentId = [string]$agentResult.chatAgent.id
+  $reportingAgentId = [string]$agentResult.reportingAgent.id
   $memoAgentResolvedName = [string]$agentResult.memoAgent.name
   $chatAgentResolvedName = [string]$agentResult.chatAgent.name
+  $reportingAgentResolvedName = [string]$agentResult.reportingAgent.name
 
-  if ($memoAgentId -and $chatAgentId) {
+  if ($memoAgentId -and $chatAgentId -and $reportingAgentId) {
     az functionapp config appsettings set --resource-group $ResourceGroup --name $functionAppName --settings `
       "FOUNDRY_MEMO_AGENT_ID=$memoAgentId" `
       "FOUNDRY_CHAT_AGENT_ID=$chatAgentId" `
+      "FOUNDRY_ADMIN_REPORTING_AGENT_ID=$reportingAgentId" `
       "FOUNDRY_MEMO_AGENT_NAME=$memoAgentResolvedName" `
-      "FOUNDRY_CHAT_AGENT_NAME=$chatAgentResolvedName" | Out-Null
+      "FOUNDRY_CHAT_AGENT_NAME=$chatAgentResolvedName" `
+      "FOUNDRY_ADMIN_REPORTING_AGENT_NAME=$reportingAgentResolvedName" | Out-Null
   }
 }
 

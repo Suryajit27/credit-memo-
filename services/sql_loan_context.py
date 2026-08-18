@@ -1,7 +1,9 @@
 import json
 import os
+import re
 import struct
 from datetime import datetime, timezone
+from typing import Callable
 
 from azure.identity import DefaultAzureCredential
 
@@ -15,6 +17,19 @@ except ImportError:
 
 SQL_ACCESS_TOKEN_ATTRIBUTE = 1256
 SQL_CITATION_ID = 900
+ADMIN_REPORTING_CITATION_ID = 910
+MAX_ADMIN_REPORTING_ROWS = 100
+ALLOWED_ADMIN_REPORTING_VIEWS = {
+    "reporting.vw_loan_cases",
+    "reporting.vw_relationship_profiles",
+    "reporting.vw_loan_monitoring",
+    "reporting.vw_credit_conditions",
+    "reporting.vw_collateral_controls",
+}
+DISALLOWED_SQL_KEYWORDS = {
+    "ALTER", "BACKUP", "CREATE", "DELETE", "DROP", "EXEC", "EXECUTE", "GRANT",
+    "INSERT", "INTO", "MERGE", "RECONFIGURE", "REVOKE", "TRUNCATE", "UPDATE", "USE",
+}
 
 
 def _database_connection():
@@ -99,4 +114,131 @@ def build_loan_context_tool(request_id: str) -> dict:
             "strict": True,
         },
         "handler": _get_loan_context,
+    }
+
+
+def _validate_admin_reporting_sql(sql: str) -> tuple[bool, str]:
+    statement = sql.strip()
+    if not statement:
+        return False, "A SQL statement is required."
+    if len(statement) > 4000:
+        return False, "The SQL statement exceeds the 4,000-character limit."
+    if ";" in statement or "--" in statement or "/*" in statement or "*/" in statement:
+        return False, "Multiple statements and SQL comments are not allowed."
+    if not re.match(r"^SELECT\b", statement, flags=re.IGNORECASE):
+        return False, "Only SELECT statements are allowed."
+
+    keywords = set(re.findall(r"\b[A-Za-z_]+\b", statement.upper()))
+    forbidden = sorted(DISALLOWED_SQL_KEYWORDS & keywords)
+    if forbidden:
+        return False, f"Disallowed SQL keyword: {forbidden[0]}."
+
+    sources = re.findall(
+        r"\b(?:FROM|JOIN)\s+([\[\]\w.]+)",
+        statement,
+        flags=re.IGNORECASE,
+    )
+    if not sources:
+        return False, "The query must select from an approved reporting view."
+
+    normalized_sources = {source.replace("[", "").replace("]", "").lower() for source in sources}
+    disallowed_sources = normalized_sources - ALLOWED_ADMIN_REPORTING_VIEWS
+    if disallowed_sources:
+        return False, f"Source is not approved for admin reporting: {sorted(disallowed_sources)[0]}."
+
+    return True, ""
+
+
+def run_admin_report(sql: str, purpose: str, max_rows: int = 50) -> str:
+    """Execute a bounded read-only portfolio query for the POC reporting agent."""
+    valid, reason = _validate_admin_reporting_sql(sql)
+    if not valid:
+        logger.warning("Rejected admin reporting query: %s", reason)
+        return f"Admin reporting query was rejected: {reason}"
+
+    try:
+        max_rows = max(1, min(int(max_rows), MAX_ADMIN_REPORTING_ROWS))
+    except (TypeError, ValueError):
+        max_rows = 50
+
+    try:
+        with _database_connection() as connection:
+            connection.timeout = 10
+            cursor = connection.cursor()
+            cursor.execute(sql)
+            columns = [column[0] for column in cursor.description or []]
+            rows = cursor.fetchmany(max_rows + 1)
+    except Exception as exc:
+        logger.warning("Admin reporting query failed: %s", exc)
+        return "Admin reporting data is currently unavailable."
+
+    truncated = len(rows) > max_rows
+    result_rows = [
+        {column: value for column, value in zip(columns, row)}
+        for row in rows[:max_rows]
+    ]
+    result = {
+        "source": "Azure SQL portfolio reporting views",
+        "citationId": ADMIN_REPORTING_CITATION_ID,
+        "purpose": purpose.strip()[:500],
+        "columns": columns,
+        "rows": result_rows,
+        "rowCount": len(result_rows),
+        "truncated": truncated,
+        "retrievedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    return f"[{ADMIN_REPORTING_CITATION_ID}] Portfolio reporting data.\n{json.dumps(result, default=str)}"
+
+
+def build_admin_reporting_tool(on_query: Callable[[dict], None] | None = None) -> dict:
+    def _run_admin_report(sql: str, purpose: str, maxRows: int = 50) -> str:
+        if on_query:
+            on_query(
+                {
+                    "tool": "run_admin_report",
+                    "query": sql,
+                    "purpose": purpose,
+                    "maxRows": maxRows,
+                }
+            )
+        return run_admin_report(sql=sql, purpose=purpose, max_rows=maxRows)
+
+    return {
+        "definition": {
+            "type": "function",
+            "name": "run_admin_report",
+            "description": (
+                "Run a read-only portfolio reporting query. Only SELECT statements "
+                "against approved reporting views are accepted. Never use request-scoped tools for this task."
+            ),
+            "parameters": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "sql": {
+                        "type": "string",
+                        "description": (
+                            "One SELECT statement using only reporting.vw_loan_cases, "
+                            "reporting.vw_relationship_profiles, reporting.vw_loan_monitoring, "
+                            "reporting.vw_credit_conditions, and reporting.vw_collateral_controls. "
+                            "Use vw_loan_cases.loan_stage or status for pipeline stage; use domain columns "
+                            "such as monitoring_status, condition_status, and control_status when relevant."
+                        ),
+                    },
+                    "purpose": {
+                        "type": "string",
+                        "description": "A concise description of the portfolio question being answered.",
+                    },
+                    "maxRows": {
+                        "type": "integer",
+                        "description": "Maximum result rows to return (1-100).",
+                        "minimum": 1,
+                        "maximum": MAX_ADMIN_REPORTING_ROWS,
+                    },
+                },
+                "required": ["sql", "purpose", "maxRows"],
+            },
+            "strict": True,
+        },
+        "handler": _run_admin_report,
     }
