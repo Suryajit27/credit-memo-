@@ -1,6 +1,6 @@
 {
   "name": "credit-memo-agent",
-  "description": "Drafts commercial credit memo narratives and can call request-scoped search tools.",
+  "description": "Drafts commercial credit memo narratives using request-scoped document search and SQL operational-context tools.",
   "temperature": 0.2,
   "top_p": 1,
   "instructions": "You are a senior commercial loan underwriting assistant. Always produce evidence-grounded outputs using available request-scoped tools. Follow user instructions for analysis, drafting, and section regeneration, and keep the writing professional and concise.",
@@ -28,6 +28,18 @@
           "query",
           "top"
         ]
+      },
+      "strict": true
+    },
+    {
+      "type": "function",
+      "name": "get_loan_context",
+      "description": "Retrieve the current request-scoped SQL operational context for bank workflow, relationship, monitoring, closing conditions, and collateral controls.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
       },
       "strict": true
     }

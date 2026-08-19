@@ -127,6 +127,11 @@ def main() -> int:
         help="Path to chat agent config JSON",
     )
     parser.add_argument(
+        "--reporting-config",
+        default="config/foundry-agents/admin-reporting-agent.json",
+        help="Path to portfolio reporting agent config JSON",
+    )
+    parser.add_argument(
         "--write-env-file",
         default="",
         help="Optional path to write env lines for agent names/ids",
@@ -150,14 +155,17 @@ def main() -> int:
 
     memo_path = Path(args.memo_config)
     chat_path = Path(args.chat_config)
-    if not memo_path.exists() or not chat_path.exists():
+    reporting_path = Path(args.reporting_config)
+    if not memo_path.exists() or not chat_path.exists() or not reporting_path.exists():
         print("Agent config files not found. Check --memo-config / --chat-config paths.", file=sys.stderr)
         return 2
 
     memo_config = _load_json(memo_path)
     chat_config = _load_json(chat_path)
+    reporting_config = _load_json(reporting_path)
     _validate_config(memo_config, memo_path)
     _validate_config(chat_config, chat_path)
+    _validate_config(reporting_config, reporting_path)
 
     credential = AzureCliCredential()
     client = AIProjectClient(endpoint=endpoint, credential=credential)
@@ -165,12 +173,14 @@ def main() -> int:
     try:
         memo_result = _upsert_prompt_agent(client, memo_config, memo_path, model_deployment)
         chat_result = _upsert_prompt_agent(client, chat_config, chat_path, model_deployment)
+        reporting_result = _upsert_prompt_agent(client, reporting_config, reporting_path, model_deployment)
     finally:
         client.close()
 
     result = {
         "memoAgent": memo_result,
         "chatAgent": chat_result,
+        "reportingAgent": reporting_result,
     }
 
     if args.write_env_file:
@@ -181,6 +191,8 @@ def main() -> int:
             f"FOUNDRY_MEMO_AGENT_ID={memo_result['id']}",
             f"FOUNDRY_CHAT_AGENT_NAME={chat_result['name']}",
             f"FOUNDRY_CHAT_AGENT_ID={chat_result['id']}",
+            f"FOUNDRY_ADMIN_REPORTING_AGENT_NAME={reporting_result['name']}",
+            f"FOUNDRY_ADMIN_REPORTING_AGENT_ID={reporting_result['id']}",
         ]
         env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

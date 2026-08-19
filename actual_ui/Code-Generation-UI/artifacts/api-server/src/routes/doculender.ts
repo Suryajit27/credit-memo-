@@ -468,4 +468,64 @@ router.post("/chat/stream", async (req, res) => {
   }
 });
 
+// 13. Stream Portfolio Reporting Chat (SSE)
+router.post("/portfolio-reporting/stream", async (req, res) => {
+  const message = String(req.body.message || "");
+  const history = Array.isArray(req.body.history) ? req.body.history : [];
+
+  if (!message) {
+    res.status(400).json({ error: "message is required" });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${AZURE_FUNC_API_URL}/portfolio-reporting/stream`, {
+      method: "POST",
+      headers: withFunctionKey({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ message, history }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Backend error" }));
+      res.status(response.status).json(err);
+      return;
+    }
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+      "Transfer-Encoding": "chunked",
+    });
+    res.flushHeaders?.();
+    res.socket?.setNoDelay(true);
+    res.socket?.setKeepAlive(true, 10000);
+    res.write(": admin-reporting-stream-open\n\n");
+
+    if (response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(decoder.decode(value, { stream: true }));
+          (res as any).flush?.();
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    }
+
+    res.end();
+  } catch (error: any) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message || "Failed to stream portfolio reporting" });
+    } else {
+      res.end();
+    }
+  }
+});
+
 export default router;

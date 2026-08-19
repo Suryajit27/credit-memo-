@@ -291,6 +291,32 @@ async def chat_stream_endpoint(req: Request):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.route(route="portfolio-reporting/stream", methods=["POST"])
+async def admin_reporting_stream_endpoint(req: Request):
+    try:
+        req_body = await req.json()
+        message = req_body.get("message")
+        history = req_body.get("history") or []
+
+        if not message:
+            return JSONResponse(status_code=400, content={"error": "Missing required 'message' parameter."})
+
+        from services.admin_reporting_agent import stream_admin_reporting_chat
+
+        return StreamingResponse(
+            stream_admin_reporting_chat(message, history),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error in portfolio-reporting/stream endpoint: {str(e)}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.route(route="memo/start", methods=["POST"])
 async def memo_start_endpoint(req: Request):
     try:

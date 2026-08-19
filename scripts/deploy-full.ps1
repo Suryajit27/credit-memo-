@@ -19,6 +19,7 @@ Param(
   [string] $FoundryApiKey = "",
   [string] $FoundryMemoAgentName = "credit-memo-agent",
   [string] $FoundryChatAgentName = "request-chat-agent",
+  [string] $FoundryAdminReportingAgentName = "portfolio-reporting-agent",
   [switch] $ReuseExistingResources,
   [string] $ExistingFunctionAppName = "",
   [string] $ExistingProxyContainerAppName = "",
@@ -28,6 +29,11 @@ Param(
   [string] $ExistingCosmosAccountName = "",
   [string] $ExistingStorageAccountName = "",
   [string] $ExistingDocumentIntelligenceName = "",
+  [string] $ExistingSqlServerName = "",
+  [string] $ExistingSqlDatabaseName = "",
+  [string] $SqlEntraAdministratorObjectId = "",
+  [string] $SqlEntraAdministratorLogin = "",
+  [string] $SqlEntraAdministratorTenantId = "",
   [switch] $SkipFoundryBootstrap,
   [switch] $SkipSmokeTest
 )
@@ -90,6 +96,35 @@ function Assert-LastExitCode {
   }
 }
 
+function Resolve-SqlEntraAdministrator {
+  if ([string]::IsNullOrWhiteSpace($script:SqlEntraAdministratorTenantId)) {
+    $script:SqlEntraAdministratorTenantId = az account show --query tenantId --output tsv
+    Assert-LastExitCode -Step "Resolving Microsoft Entra tenant ID"
+  }
+
+  if ([string]::IsNullOrWhiteSpace($script:SqlEntraAdministratorObjectId)) {
+    $script:SqlEntraAdministratorObjectId = az ad signed-in-user show --query id --output tsv 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      throw "Unable to resolve the signed-in Microsoft Entra user. Supply -SqlEntraAdministratorObjectId and -SqlEntraAdministratorLogin when deploying with a service principal."
+    }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($script:SqlEntraAdministratorLogin)) {
+    $script:SqlEntraAdministratorLogin = az account show --query user.name --output tsv
+    Assert-LastExitCode -Step "Resolving Microsoft Entra administrator login"
+  }
+
+  Require-ExistingValue -Value $script:SqlEntraAdministratorObjectId -Name "SqlEntraAdministratorObjectId" | Out-Null
+  Require-ExistingValue -Value $script:SqlEntraAdministratorLogin -Name "SqlEntraAdministratorLogin" | Out-Null
+  Require-ExistingValue -Value $script:SqlEntraAdministratorTenantId -Name "SqlEntraAdministratorTenantId" | Out-Null
+}
+
+function New-SqlAdministratorPassword {
+  $characters = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  $suffix = -join (1..29 | ForEach-Object { $characters[(Get-Random -Minimum 0 -Maximum $characters.Length)] })
+  return "Aa1!$suffix"
+}
+
 Push-Location $repoRoot
 try {
 "Checking prerequisites..."
@@ -124,16 +159,23 @@ if ($ReuseExistingResources) {
   $cosmosAccountName = Require-ExistingValue -Value $ExistingCosmosAccountName -Name "ExistingCosmosAccountName"
   $storageAccountName = Require-ExistingValue -Value $ExistingStorageAccountName -Name "ExistingStorageAccountName"
   $documentIntelligenceName = Require-ExistingValue -Value $ExistingDocumentIntelligenceName -Name "ExistingDocumentIntelligenceName"
+  $sqlServerName = $ExistingSqlServerName.Trim()
+  $sqlDatabaseName = $ExistingSqlDatabaseName.Trim()
+  if ([string]::IsNullOrWhiteSpace($sqlServerName) -xor [string]::IsNullOrWhiteSpace($sqlDatabaseName)) {
+    throw "ExistingSqlServerName and ExistingSqlDatabaseName must be supplied together when reusing an existing SQL deployment."
+  }
   $functionApiBaseUrl = "https://$functionAppName.azurewebsites.net/api"
 }
 else {
+  Resolve-SqlEntraAdministrator
+  $temporarySqlAdministratorPassword = New-SqlAdministratorPassword
   $deploymentName = "cm-infra-{0}" -f (Get-Date -Format "yyyyMMddHHmmss")
   "Deploying infrastructure (Bicep)..."
   $outputsJson = az deployment group create `
     --name $deploymentName `
     --resource-group $ResourceGroup `
     --template-file (Join-Path $repoRoot "infra/main.bicep") `
-    --parameters "environmentName=$EnvironmentName" "location=$Location" "staticWebAppLocation=$StaticWebAppLocation" "searchSku=$SearchSku" "documentIntelligenceSku=$DocumentIntelligenceSku" "azureOpenAIEndpoint=$OpenAIEndpoint" "azureOpenAIApiKey=$OpenAIApiKey" "azureOpenAIEmbeddingDeployment=$OpenAIEmbeddingDeployment" "azureCognitiveServicesKey=$CognitiveServicesKey" `
+    --parameters "environmentName=$EnvironmentName" "location=$Location" "staticWebAppLocation=$StaticWebAppLocation" "searchSku=$SearchSku" "documentIntelligenceSku=$DocumentIntelligenceSku" "azureOpenAIEndpoint=$OpenAIEndpoint" "azureOpenAIApiKey=$OpenAIApiKey" "azureOpenAIEmbeddingDeployment=$OpenAIEmbeddingDeployment" "azureCognitiveServicesKey=$CognitiveServicesKey" "sqlEntraAdministratorObjectId=$SqlEntraAdministratorObjectId" "sqlEntraAdministratorLogin=$SqlEntraAdministratorLogin" "sqlEntraAdministratorTenantId=$SqlEntraAdministratorTenantId" "sqlAdministratorPassword=$temporarySqlAdministratorPassword" `
     --query "properties.outputs" `
     --output json
   Assert-LastExitCode -Step "Deploying infrastructure template"
@@ -148,8 +190,36 @@ else {
   $cosmosAccountName = Get-OutputValue -Outputs $outputs -Name "cosmosAccountName"
   $storageAccountName = Get-OutputValue -Outputs $outputs -Name "storageAccountName"
   $documentIntelligenceName = Get-OutputValue -Outputs $outputs -Name "documentIntelligenceName"
+  $sqlServerName = Get-OutputValue -Outputs $outputs -Name "sqlServerName"
+  $sqlDatabaseName = Get-OutputValue -Outputs $outputs -Name "sqlDatabaseName"
   $functionApiBaseUrl = Get-OutputValue -Outputs $outputs -Name "functionApiBaseUrl"
 }
+
+"Ensuring the Function App has a system-assigned managed identity..."
+az functionapp identity assign --resource-group $ResourceGroup --name $functionAppName | Out-Null
+Assert-LastExitCode -Step "Assigning Function App managed identity"
+
+"Deploying Azure SQL schema and seed data..."
+$sqlDeploymentArguments = @{
+  SubscriptionId = $SubscriptionId
+  ResourceGroup = $ResourceGroup
+  EnvironmentName = $EnvironmentName
+  Location = $Location
+  FunctionAppName = $functionAppName
+}
+if ($sqlServerName -and $sqlDatabaseName) {
+  $sqlDeploymentArguments.SqlServerName = $sqlServerName
+  $sqlDeploymentArguments.SqlDatabaseName = $sqlDatabaseName
+  $sqlDeploymentArguments.SkipInfrastructure = $true
+}
+else {
+  Resolve-SqlEntraAdministrator
+  $sqlDeploymentArguments.SqlEntraAdministratorObjectId = $SqlEntraAdministratorObjectId
+  $sqlDeploymentArguments.SqlEntraAdministratorLogin = $SqlEntraAdministratorLogin
+  $sqlDeploymentArguments.SqlEntraAdministratorTenantId = $SqlEntraAdministratorTenantId
+}
+& (Join-Path $scriptRoot "deploy-sql.ps1") @sqlDeploymentArguments
+Assert-LastExitCode -Step "Deploying Azure SQL schema and seed data"
 
 "Collecting infra connection details..."
 $storageConnectionString = az storage account show-connection-string --resource-group $ResourceGroup --name $storageAccountName --query connectionString --output tsv
@@ -188,7 +258,8 @@ az functionapp config appsettings set --resource-group $ResourceGroup --name $fu
   "FOUNDRY_PROJECT_ENDPOINT=$FoundryProjectEndpoint" `
   "FOUNDRY_API_KEY=$FoundryApiKey" `
   "FOUNDRY_MEMO_AGENT_NAME=$FoundryMemoAgentName" `
-  "FOUNDRY_CHAT_AGENT_NAME=$FoundryChatAgentName" | Out-Null
+  "FOUNDRY_CHAT_AGENT_NAME=$FoundryChatAgentName" `
+  "FOUNDRY_ADMIN_REPORTING_AGENT_NAME=$FoundryAdminReportingAgentName" | Out-Null
 Assert-LastExitCode -Step "Configuring Function App settings"
 
 "Deploying Azure Functions code..."
@@ -276,6 +347,7 @@ if (-not $SkipFoundryBootstrap) {
     --model-deployment "$OpenAIDeploymentName" `
     --memo-config (Join-Path $repoRoot "config/foundry-agents/memo-agent.json") `
     --chat-config (Join-Path $repoRoot "config/foundry-agents/chat-agent.json") `
+    --reporting-config (Join-Path $repoRoot "config/foundry-agents/admin-reporting-agent.json") `
     --json-out "$bootstrapJsonFile"
   Assert-LastExitCode -Step "Bootstrapping Foundry agents"
   if (-not (Test-Path -LiteralPath $bootstrapJsonFile)) {
@@ -285,15 +357,19 @@ if (-not $SkipFoundryBootstrap) {
   $agentResult = (Get-Content -LiteralPath $bootstrapJsonFile -Raw) | ConvertFrom-Json
   $memoAgentId = [string]$agentResult.memoAgent.id
   $chatAgentId = [string]$agentResult.chatAgent.id
+  $reportingAgentId = [string]$agentResult.reportingAgent.id
   $memoAgentResolvedName = [string]$agentResult.memoAgent.name
   $chatAgentResolvedName = [string]$agentResult.chatAgent.name
+  $reportingAgentResolvedName = [string]$agentResult.reportingAgent.name
 
-  if ($memoAgentId -and $chatAgentId) {
+  if ($memoAgentId -and $chatAgentId -and $reportingAgentId) {
     az functionapp config appsettings set --resource-group $ResourceGroup --name $functionAppName --settings `
       "FOUNDRY_MEMO_AGENT_ID=$memoAgentId" `
       "FOUNDRY_CHAT_AGENT_ID=$chatAgentId" `
+      "FOUNDRY_ADMIN_REPORTING_AGENT_ID=$reportingAgentId" `
       "FOUNDRY_MEMO_AGENT_NAME=$memoAgentResolvedName" `
-      "FOUNDRY_CHAT_AGENT_NAME=$chatAgentResolvedName" | Out-Null
+      "FOUNDRY_CHAT_AGENT_NAME=$chatAgentResolvedName" `
+      "FOUNDRY_ADMIN_REPORTING_AGENT_NAME=$reportingAgentResolvedName" | Out-Null
   }
 }
 
@@ -306,6 +382,8 @@ if (-not $SkipSmokeTest) {
 "Deployment complete"
 "Resource Group: $ResourceGroup"
 "Function App: $functionAppName"
+"Azure SQL Server: $sqlServerName.database.windows.net"
+"Azure SQL Database: $sqlDatabaseName"
 "Proxy URL: $proxyBaseUrl"
 "Static Web App URL: $staticWebAppUrl"
 }

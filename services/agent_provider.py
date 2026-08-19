@@ -263,6 +263,11 @@ def create_agent(instructions: str, tools: list = None, agent_kind: str = "memo"
         agent_id = os.environ.get("FOUNDRY_CHAT_AGENT_ID") or os.environ.get("AZURE_FOUNDRY_CHAT_AGENT_ID")
         if not agent_name and not agent_id:
             raise RuntimeError("Set FOUNDRY_CHAT_AGENT_NAME or FOUNDRY_CHAT_AGENT_ID.")
+    elif agent_kind == "reporting":
+        agent_name = os.environ.get("FOUNDRY_ADMIN_REPORTING_AGENT_NAME") or os.environ.get("AZURE_FOUNDRY_ADMIN_REPORTING_AGENT_NAME")
+        agent_id = os.environ.get("FOUNDRY_ADMIN_REPORTING_AGENT_ID") or os.environ.get("AZURE_FOUNDRY_ADMIN_REPORTING_AGENT_ID")
+        if not agent_name and not agent_id:
+            raise RuntimeError("Set FOUNDRY_ADMIN_REPORTING_AGENT_NAME or FOUNDRY_ADMIN_REPORTING_AGENT_ID.")
     else:
         agent_name = os.environ.get("FOUNDRY_MEMO_AGENT_NAME") or os.environ.get("AZURE_FOUNDRY_MEMO_AGENT_NAME")
         agent_id = os.environ.get("FOUNDRY_MEMO_AGENT_ID") or os.environ.get("AZURE_FOUNDRY_MEMO_AGENT_ID")

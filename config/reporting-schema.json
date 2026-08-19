@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "description": "Approved portfolio reporting schema for the reporting agent. Query only these views and exact columns.",
+  "views": {
+    "reporting.vw_loan_cases": {
+      "description": "Portfolio loan pipeline, borrower identity, ownership, and credit committee scheduling.",
+      "columns": {
+        "case_id": "Unique loan case identifier.",
+        "request_id": "Internal request identifier linked to the loan case.",
+        "loan_number": "Unique loan number.",
+        "borrower_name": "Borrower legal name.",
+        "loan_stage": "Current underwriting pipeline stage.",
+        "status": "Alias for loan_stage. Use only when a generic status label is needed.",
+        "relationship_manager_name": "Relationship manager assigned to the borrower.",
+        "portfolio_manager_name": "Portfolio manager assigned to the case.",
+        "next_credit_committee_date": "Scheduled next credit committee date.",
+        "updated_at": "UTC timestamp when the loan case was last updated."
+      }
+    },
+    "reporting.vw_relationship_profiles": {
+      "description": "Borrower relationship tenure, operating-account details, and treasury services.",
+      "columns": {
+        "request_id": "Internal request identifier linked to the loan case.",
+        "loan_number": "Loan number.",
+        "borrower_name": "Borrower legal name.",
+        "relationship_manager_name": "Relationship manager assigned to the borrower.",
+        "portfolio_manager_name": "Portfolio manager assigned to the case.",
+        "relationship_since": "Date the banking relationship began.",
+        "operating_account_status": "Current operating-account status.",
+        "status": "Alias for operating_account_status.",
+        "average_operating_balance": "Average operating-account balance.",
+        "treasury_management_enabled": "Whether treasury management is enabled.",
+        "merchant_services_enabled": "Whether merchant services are enabled."
+      }
+    },
+    "reporting.vw_loan_monitoring": {
+      "description": "Risk grade, annual review, monitoring, and watchlist information.",
+      "columns": {
+        "request_id": "Internal request identifier linked to the loan case.",
+        "loan_number": "Loan number.",
+        "borrower_name": "Borrower legal name.",
+        "relationship_manager_name": "Relationship manager assigned to the borrower.",
+        "portfolio_manager_name": "Portfolio manager assigned to the case.",
+        "internal_risk_grade": "Current internal risk grade.",
+        "annual_review_due_date": "Date the annual credit review is due.",
+        "latest_monitoring_date": "Most recent monitoring completion date.",
+        "monitoring_status": "Current monitoring workflow status.",
+        "status": "Alias for monitoring_status.",
+        "watchlist_status": "Current watchlist designation."
+      }
+    },
+    "reporting.vw_credit_conditions": {
+      "description": "Credit conditions, assigned owners, statuses, and due dates.",
+      "columns": {
+        "request_id": "Internal request identifier linked to the loan case.",
+        "loan_number": "Loan number.",
+        "borrower_name": "Borrower legal name.",
+        "relationship_manager_name": "Relationship manager assigned to the borrower.",
+        "portfolio_manager_name": "Portfolio manager assigned to the case.",
+        "condition_id": "Unique credit-condition identifier.",
+        "condition_category": "Business category of the credit condition.",
+        "condition_description": "Description of the required credit condition.",
+        "owner_name": "Person responsible for resolving the condition.",
+        "condition_status": "Current condition status.",
+        "status": "Alias for condition_status.",
+        "due_date": "Credit-condition due date."
+      }
+    },
+    "reporting.vw_collateral_controls": {
+      "description": "Collateral control requirements, statuses, details, and target dates.",
+      "columns": {
+        "request_id": "Internal request identifier linked to the loan case.",
+        "loan_number": "Loan number.",
+        "borrower_name": "Borrower legal name.",
+        "relationship_manager_name": "Relationship manager assigned to the borrower.",
+        "portfolio_manager_name": "Portfolio manager assigned to the case.",
+        "control_id": "Unique collateral-control identifier.",
+        "control_type": "Category of collateral control.",
+        "control_status": "Current collateral-control status.",
+        "status": "Alias for control_status.",
+        "control_detail": "Detail describing the collateral control.",
+        "target_date": "Target completion date for the control."
+      }
+    }
+  }
+}

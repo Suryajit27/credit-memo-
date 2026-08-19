@@ -36,6 +36,12 @@
     "FOUNDRY_API_KEY": "<foundry-key>",
     "FOUNDRY_MEMO_AGENT_NAME": "credit-memo-agent",
     "FOUNDRY_CHAT_AGENT_NAME": "request-chat-agent",
+    "FOUNDRY_ADMIN_REPORTING_AGENT_NAME": "portfolio-reporting-agent",
+
+    "SQL_SERVER": "<sql-server-name>.database.windows.net",
+    "SQL_DATABASE": "creditmemo",
+    "SQL_ODBC_DRIVER": "ODBC Driver 18 for SQL Server",
+    "SQL_AUTHENTICATION": "managed_identity",
 
     "PYTHON_ENABLE_INIT_INDEXING": "1",
     "PYTHON_ISOLATE_WORKER_DEPENDENCIES": "1",
