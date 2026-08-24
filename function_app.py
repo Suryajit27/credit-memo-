@@ -10,9 +10,116 @@ from services.file_discovery import discover_files
 from classification.classifier import process_documents_concurrently, classify_single_file_bytes
 
 from azurefunctions.extensions.http.fastapi import Request, StreamingResponse
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+
+
+@app.route(route="document-extraction/documents", methods=["GET"])
+async def get_extraction_documents(req: Request):
+    from services.cosmos_tracker import get_request_from_cosmos
+
+    request_id = req.query_params.get("requestId", "").strip()
+    if not request_id:
+        return JSONResponse(status_code=400, content={"error": "requestId is required."})
+    record = get_request_from_cosmos(request_id)
+    if not record:
+        return JSONResponse(status_code=404, content={"error": "No uploaded documents found for this request."})
+    return JSONResponse(status_code=200, content={"requestId": request_id, "documents": record.get("documents", [])})
+
+
+@app.route(route="document-extraction/extract", methods=["POST"])
+async def extract_document(req: Request):
+    from services.cosmos_tracker import get_request_from_cosmos
+    from services.document_extraction import ExtractionJsonError, extract_document_fields
+
+    try:
+        body = await req.json()
+        request_id = str(body.get("requestId", "")).strip()
+        blob_name = str(body.get("blobName", "")).strip()
+        if not request_id or not blob_name:
+            return JSONResponse(status_code=400, content={"error": "requestId and blobName are required."})
+        record = get_request_from_cosmos(request_id)
+        if not record or not any(doc.get("blobName") == blob_name for doc in record.get("documents", [])):
+            return JSONResponse(status_code=404, content={"error": "The selected document was not found for this request."})
+        document = next(doc for doc in record.get("documents", []) if doc.get("blobName") == blob_name)
+        extraction = await extract_document_fields(blob_name, str(document.get("originalPath", "")))
+        return JSONResponse(status_code=200, content={"requestId": request_id, "blobName": blob_name, "extraction": extraction})
+    except ExtractionJsonError as e:
+        return JSONResponse(status_code=422, content={
+            "error": str(e),
+            "repair": {"stage": e.stage, "rawOutput": e.raw_output, "baseFields": e.base_fields},
+        })
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error(f"Document extraction failed: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": f"Document extraction failed: {str(e)}"})
+
+
+@app.route(route="document-extraction/repair", methods=["POST"])
+async def repair_document_extraction_endpoint(req: Request):
+    from services.cosmos_tracker import get_request_from_cosmos
+    from services.document_extraction import repair_document_extraction
+
+    try:
+        body = await req.json()
+        request_id = str(body.get("requestId", "")).strip()
+        blob_name = str(body.get("blobName", "")).strip()
+        stage = str(body.get("stage", "")).strip()
+        raw_output = str(body.get("rawOutput", ""))
+        base_fields = body.get("baseFields") if isinstance(body.get("baseFields"), dict) else {}
+        if not request_id or not blob_name or not stage or not raw_output:
+            return JSONResponse(status_code=400, content={"error": "requestId, blobName, stage, and corrected JSON are required."})
+        record = get_request_from_cosmos(request_id)
+        document = next((doc for doc in (record or {}).get("documents", []) if doc.get("blobName") == blob_name), None)
+        if not document:
+            return JSONResponse(status_code=404, content={"error": "The selected document was not found for this request."})
+        extraction = repair_document_extraction(blob_name, str(document.get("originalPath", "")), stage, raw_output, base_fields)
+        return JSONResponse(status_code=200, content={"requestId": request_id, "blobName": blob_name, "extraction": extraction, "repaired": True})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error(f"Document extraction repair failed: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": "Could not apply the corrected extraction JSON."})
+
+
+@app.route(route="document-extraction/finalize", methods=["POST"])
+async def finalize_document_extraction(req: Request):
+    from services.cosmos_tracker import save_document_extraction
+
+    try:
+        body = await req.json()
+        request_id = str(body.get("requestId", "")).strip()
+        blob_name = str(body.get("blobName", "")).strip()
+        extraction_data = body.get("extraction")
+        if not request_id or not blob_name or not isinstance(extraction_data, dict):
+            return JSONResponse(status_code=400, content={"error": "requestId, blobName, and canonical extraction data are required."})
+        extraction = save_document_extraction(request_id, blob_name, extraction_data)
+        return JSONResponse(status_code=200, content={"requestId": request_id, "blobName": blob_name, "extraction": extraction})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error(f"Saving document extraction failed: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": "Could not finalize document extraction."})
+
+
+@app.route(route="document-extraction/preview", methods=["GET"])
+async def preview_extraction_document(req: Request):
+    from services.blob_uploader import download_blob
+    from services.cosmos_tracker import get_request_from_cosmos
+
+    request_id = req.query_params.get("requestId", "").strip()
+    blob_name = req.query_params.get("blobName", "").strip()
+    if not request_id or not blob_name:
+        return JSONResponse(status_code=400, content={"error": "requestId and blobName are required."})
+    record = get_request_from_cosmos(request_id)
+    if not record or not any(doc.get("blobName") == blob_name for doc in record.get("documents", [])):
+        return JSONResponse(status_code=404, content={"error": "The selected document was not found for this request."})
+    file_bytes, content_type = download_blob(blob_name)
+    if file_bytes is None:
+        return JSONResponse(status_code=404, content={"error": "Source document could not be downloaded."})
+    return Response(content=file_bytes, media_type=content_type or "application/octet-stream")
 
 @app.route(route="classify", methods=["POST"])
 async def classify_documents(req: Request):
@@ -154,7 +261,13 @@ async def trigger_indexing_endpoint(req: Request):
         req_body = await req.json() if req.method == "POST" else {}
         request_id = req_body.get("requestId") or req.query_params.get("requestId")
 
-        from services.search_indexer import trigger_indexer_run
+        from services.search_indexer import DEMO_ALREADY_INDEXED_REQUEST_ID, trigger_indexer_run
+        if request_id == DEMO_ALREADY_INDEXED_REQUEST_ID:
+            return JSONResponse(status_code=200, content={
+                "message": f"Request {request_id} is already indexed; skipping indexer trigger.",
+                "indexingStatus": "succeeded",
+                "skipped": True,
+            })
         success = trigger_indexer_run(request_id)
 
         if success:

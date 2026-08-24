@@ -226,6 +226,60 @@ router.post("/trigger-indexing", (req, res) => {
   forwardJsonPost("/trigger-indexing", req.body, res);
 });
 
+// 4b. Document extraction workspace
+router.get("/document-extraction/documents", (req, res) => {
+  const requestId = String(req.query.requestId || "");
+  if (!requestId) {
+    res.status(400).json({ error: "requestId is required" });
+    return;
+  }
+  forwardGet(`/document-extraction/documents?requestId=${encodeURIComponent(requestId)}`, res);
+});
+
+router.post("/document-extraction/extract", (req, res) => {
+  forwardJsonPost("/document-extraction/extract", req.body, res);
+});
+
+router.post("/document-extraction/finalize", (req, res) => {
+  forwardJsonPost("/document-extraction/finalize", req.body, res);
+});
+
+router.post("/document-extraction/repair", (req, res) => {
+  forwardJsonPost("/document-extraction/repair", req.body, res);
+});
+
+router.get("/document-extraction/preview", async (req, res) => {
+  const requestId = String(req.query.requestId || "");
+  const blobName = String(req.query.blobName || "");
+  if (!requestId || !blobName) {
+    res.status(400).json({ error: "requestId and blobName are required" });
+    return;
+  }
+  try {
+    const response = await fetch(`${AZURE_FUNC_API_URL}/document-extraction/preview?requestId=${encodeURIComponent(requestId)}&blobName=${encodeURIComponent(blobName)}`, { headers: withFunctionKey() });
+    if (!response.ok || !response.body) {
+      const data = await response.json().catch(() => ({ error: "Preview unavailable" }));
+      res.status(response.status).json(data);
+      return;
+    }
+    res.status(response.status);
+    res.setHeader("Content-Type", response.headers.get("content-type") || "application/octet-stream");
+    const reader = response.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    res.end();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Preview unavailable" });
+  }
+});
+
 // 5. Indexer Status
 router.get("/indexer-status", (req, res) => {
   const parsed = GetIndexerStatusQueryParams.safeParse(req.query);

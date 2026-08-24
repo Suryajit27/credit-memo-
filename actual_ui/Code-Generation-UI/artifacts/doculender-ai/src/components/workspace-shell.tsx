@@ -1,4 +1,4 @@
-import { BarChart3, Bell, ChevronDown, CloudUpload, FileStack, LayoutDashboard, PanelLeftClose, PanelLeftOpen, PenLine, Search, Settings2, ShieldCheck } from 'lucide-react';
+import { BarChart3, Bell, ChevronDown, CloudUpload, FileJson2, FileStack, LayoutDashboard, PanelLeftClose, PanelLeftOpen, PenLine, Search, Settings2, ShieldCheck } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useEffect, useMemo, useState } from 'react';
 import { useGetIndexerStatus, getGetIndexerStatusQueryKey } from '@workspace/api-client-react';
@@ -18,6 +18,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const indexed = indexer.data;
   const navItems = useMemo(() => [
     { href: '/', label: 'Document intake', detail: 'Classify & index', icon: FileStack, keywords: ['intake', 'document intake', 'documents', 'classify', 'index'] },
+    { href: '/document-extraction', label: 'Field extraction', detail: 'Review document fields', icon: FileJson2, keywords: ['extract', 'extraction', 'fields', 'key value', 'key-value', 'json'] },
     { href: '/memo', label: 'Narrative studio', detail: 'Draft memo narratives', icon: PenLine, keywords: ['memo', 'credit memo', 'narrative', 'narratives', 'studio', 'draft', 'review'] },
     { href: '/portfolio-reporting', label: 'Portfolio reporting', detail: 'Query operations data', icon: BarChart3, keywords: ['portfolio', 'reporting', 'operations', 'sql', 'monitoring', 'watchlist'] },
   ], []);
@@ -86,7 +87,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         <header className="sticky top-0 z-20 flex h-[74px] items-center justify-between border-b border-border/80 bg-background/95 px-5 backdrop-blur-md md:px-8">
           <div className="flex items-center gap-3">
             <button type="button" data-testid="button-open-navigation" onClick={() => setRailOpen((v) => !v)} className="rounded-md p-2 text-muted-foreground hover:bg-muted">{railOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button>
-            <div className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:flex"><LayoutDashboard size={14} /> Underwriting workspace <span className="text-border">/</span> <span className="text-foreground">{location === '/memo' ? 'Narrative studio' : location === '/portfolio-reporting' ? 'Portfolio reporting' : 'Document intake'}</span></div>
+            <div className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:flex"><LayoutDashboard size={14} /> Underwriting workspace <span className="text-border">/</span> <span className="text-foreground">{location === '/memo' ? 'Narrative studio' : location === '/portfolio-reporting' ? 'Portfolio reporting' : location === '/document-extraction' ? 'Field extraction' : 'Document intake'}</span></div>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" data-testid="button-global-search" onClick={() => setSearchOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-left text-xs text-muted-foreground shadow-sm transition-colors hover:border-foreground/25 sm:flex"><Search size={14} /> Search workspace <span className="ml-4 font-mono text-[9px] opacity-50">⌘ K</span></button>

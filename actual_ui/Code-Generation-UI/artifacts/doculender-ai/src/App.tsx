@@ -7,6 +7,7 @@ import { WorkspaceShell } from '@/components/workspace-shell';
 import Home from '@/pages/home';
 import Memo from '@/pages/memo';
 import PortfolioReporting from '@/pages/portfolio-reporting';
+import DocumentExtraction from '@/pages/document-extraction';
 import { RequestIdProvider } from '@/lib/request-id-context';
 
 const queryClient = new QueryClient();
@@ -18,6 +19,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/memo" component={Memo} />
         <Route path="/portfolio-reporting" component={PortfolioReporting} />
+        <Route path="/document-extraction" component={DocumentExtraction} />
         <Route component={NotFound} />
       </Switch>
     </WorkspaceShell>

@@ -4,6 +4,8 @@ import requests
 from utils.logging import logger
 from services.cosmos_tracker import update_indexing_status_in_cosmos, get_request_from_cosmos
 
+DEMO_ALREADY_INDEXED_REQUEST_ID = "sample-meridian-foods-2026"
+
 
 def _escape_odata_literal(value: str) -> str:
     return (value or "").replace("'", "''")
@@ -72,6 +74,10 @@ def trigger_indexer_run(request_id: str = None) -> bool:
     """
     Triggers an Azure AI Search indexer run.
     """
+    if request_id == DEMO_ALREADY_INDEXED_REQUEST_ID:
+        logger.info(f"Skipping indexer trigger for already-indexed demo request {request_id}")
+        return True
+
     search_endpoint = os.environ.get("AZURE_SEARCH_ENDPOINT")
     indexer_name = os.environ.get("AZURE_SEARCH_INDEXER_NAME", "loan-documents-indexer")
 
@@ -147,6 +153,21 @@ def get_indexer_status(request_id: str) -> dict:
     total_docs = int((cosmos_doc or {}).get("totalCount") or len(docs_in_request) or 0)
     cosmos_status = (cosmos_doc or {}).get("indexingStatus", "pending")
     cosmos_indexed_count = int((cosmos_doc or {}).get("indexedCount") or 0)
+
+    if request_id == DEMO_ALREADY_INDEXED_REQUEST_ID:
+        update_indexing_status_in_cosmos(
+            request_id=request_id,
+            status="succeeded",
+            indexed_count=total_docs,
+            total_count=total_docs,
+        )
+        return {
+            "requestId": request_id,
+            "indexingStatus": "succeeded",
+            "indexedCount": total_docs,
+            "totalCount": total_docs,
+            "indexingErrors": [],
+        }
 
     if not search_endpoint or not os.environ.get("AZURE_SEARCH_ADMIN_KEY"):
         return {
