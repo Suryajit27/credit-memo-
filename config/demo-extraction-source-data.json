@@ -1,0 +1,45 @@
+{
+  "requestId": "sample-meridian-foods-2026",
+  "extracted_data": {
+    "credit_report": {
+      "borrower_name": "Michael Turner",
+      "social_security_number": "987-65-4321",
+      "date_of_birth": "04/12/1954",
+      "current_address": "1842 Cedar Brook Lane, Marietta, GA 30062",
+      "loan_number": "SR Pine Meadows",
+      "credit_score": "Experian: 652, Equifax: 671",
+      "report_id": "76230418",
+      "total_debt_balance_unsecured": "$5,492",
+      "revolving_utilization_percentage": "6%",
+      "public_records": "None"
+    },
+    "fraud_report": {
+      "borrower_name": "MARK LEE",
+      "social_security_number": "000-12-3456",
+      "date_of_birth": "07/14/1986",
+      "current_address": "4821 N Oak Pl Boise, ID 83704",
+      "report_id": "7401629",
+      "employer_name": "SUMMIT HOMES LLC",
+      "phone_number": "208-555-0147",
+      "drivers_license": "CO/TEST4821",
+      "associated_businesses": ["SILVER HOLDINGS LLC", "NORTH HOLDINGS LLC"],
+      "fraud_indicators_risk_summary": "No risk indicator(s) found"
+    },
+    "appraisal_report": {
+      "property_name": "Cedar Grove",
+      "property_location_address": "Tampa, Hillsborough County, FL 33614",
+      "appraisal_prepared_for_client": "Horizon Loan Services",
+      "prepared_by_appraiser_name": "Jordan Blake, MAI",
+      "job_number_reference_number": "25-0001842-1",
+      "value_conclusions": {
+        "market_value_as_is_units_under_construction": "$10,660,000",
+        "market_value_as_is_developed_lots": "$2,630,000",
+        "prospective_bulk_market_value_upon_completion": "$16,200,000"
+      },
+      "interest_appraised": "Fee Simple",
+      "zoning": "PD (Planned Development)",
+      "cost_to_complete": "$4,746,740",
+      "floor_plan_summary": ["Unit A", "Unit B", "Unit C"]
+    }
+  }
+}

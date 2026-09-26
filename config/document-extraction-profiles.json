@@ -1,0 +1,55 @@
+{
+  "profiles": [
+    {
+      "name": "Credit Report",
+      "sourceGroup": "credit_report",
+      "aliases": ["credit report", "creditreport"],
+      "extractionFields": [
+        {"fieldName": "Borrower Name", "searchTerms": ["Name", "Borrower Name", "Applicant", "NM"]},
+        {"fieldName": "Social Security Number", "searchTerms": ["SSN", "Social Security", "Social Security Number"]},
+        {"fieldName": "Date of Birth", "searchTerms": ["DOB", "Date of Birth", "DOB/Age"]},
+        {"fieldName": "Current Address", "searchTerms": ["Current Address", "Address", "Applicant Address"]},
+        {"fieldName": "Loan Number", "searchTerms": ["Loan Number", "Loan #"]},
+        {"fieldName": "Credit Score", "searchTerms": ["Score", "Credit Score", "Fair Isaac", "FICO"]},
+        {"fieldName": "Report ID", "searchTerms": ["Report ID", "Report Identifier"]},
+        {"fieldName": "Total Debt Balance Unsecured", "searchTerms": ["Total Debt Balance unsecured", "Unsecured Debt"]},
+        {"fieldName": "Revolving Utilization Percentage", "searchTerms": ["Revolving Utilization %", "Utilization %", "Revolving/Credit Line Used"]},
+        {"fieldName": "Public Records", "searchTerms": ["Public Records", "Bankruptcy", "Collections/Charge-offs"]}
+      ]
+    },
+    {
+      "name": "Fraud Check Background Report",
+      "sourceGroup": "fraud_report",
+      "aliases": ["fraud check background report", "fraud report", "fraudcheckbackgroundreport"],
+      "extractionFields": [
+        {"fieldName": "Borrower Name", "searchTerms": ["Name", "Borrower", "First Name", "Last Name", "MARK LEE"]},
+        {"fieldName": "Social Security Number", "searchTerms": ["SSN", "Social Security Number", "000-12-3456"]},
+        {"fieldName": "Date of Birth", "searchTerms": ["DOB", "Date of Birth"]},
+        {"fieldName": "Current Address", "searchTerms": ["Address", "Property Address", "Customer Address", "Current Address"]},
+        {"fieldName": "Report ID", "searchTerms": ["Report ID", "Reference Number"]},
+        {"fieldName": "Employer Name", "searchTerms": ["Employer", "Employer 1 Name", "Company Name", "SUMMIT HOMES LLC"]},
+        {"fieldName": "Phone Number", "searchTerms": ["Phone Number", "Phone", "Reverse Phone Number Lookup"]},
+        {"fieldName": "Driver's License", "searchTerms": ["Driver's License", "Driver's License Search", "License"]},
+        {"fieldName": "Associated Businesses", "searchTerms": ["Associated Business Search", "Company Name", "SILVER HOLDINGS LLC"]},
+        {"fieldName": "Fraud Indicators / Risk Summary", "searchTerms": ["SUMMARY OF FINDINGS", "Fraud Messages", "Risk Indicator", "No risk indicator(s) found"]}
+      ]
+    },
+    {
+      "name": "Appraisal Report",
+      "sourceGroup": "appraisal_report",
+      "aliases": ["appraisal report", "appraisalreport"],
+      "extractionFields": [
+        {"fieldName": "Property Name", "searchTerms": ["Property Name", "Subdivision Name", "Project Name"]},
+        {"fieldName": "Property Location / Address", "searchTerms": ["Street Address", "Location", "Property Address", "City, State & Zip"]},
+        {"fieldName": "Appraisal Prepared For / Client", "searchTerms": ["Appraisal Report Prepared For", "Client", "Customer Name"]},
+        {"fieldName": "Prepared By / Appraiser Name", "searchTerms": ["Prepared By", "Appraiser", "Signatory"]},
+        {"fieldName": "Job Number / Reference Number", "searchTerms": ["Newmark Job No.", "Reference Number", "Report ID"]},
+        {"fieldName": "Value Conclusions", "searchTerms": ["Value Conclusions", "Market Value", "Overall Market Value", "Prospective Bulk Market Value"]},
+        {"fieldName": "Interest Appraised", "searchTerms": ["Interest Appraised", "Appraisal Premise"]},
+        {"fieldName": "Zoning", "searchTerms": ["Zoning", "Zoning Designation", "Zoning Jurisdiction"]},
+        {"fieldName": "Cost to Complete", "searchTerms": ["Cost to Complete", "Remaining Budget", "Vertical Cost to Complete"]},
+        {"fieldName": "Floor Plan Summary", "searchTerms": ["Plan Name", "Subject Floor Plan Summary", "Hypothetical Floor Plan Value Reconciliation"]}
+      ]
+    }
+  ]
+}

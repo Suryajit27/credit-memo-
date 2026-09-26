@@ -1,0 +1,681 @@
+
+---
+
+## 1. AML/CFT Snapshot — Compliance Check-List
+
+**File:** `06_kyc_aml_compliance.pdf`
+
+**Title:** AML/CFT Snapshot — Compliance Check-List (Collection for Banking Institutions)
+
+**Banking Institution:** AML/CFT Snapshot
+**Completed by:** Feeds section(s): Regulatory / Compliance Notes
+**Date:** 13-10-2023
+
+### AML/CFT Compliance Program
+
+The document covers the four pillars of the AML/CFT compliance program.
+
+**Compliance Program**
+
+* Compliance program document
+* Reviewing the program document
+
+**AML/CFT Policies**
+
+* AML/CFT policy/policies
+* Policy review
+
+**AML/CFT Procedures**
+
+* AML/CFT procedures
+
+**AML/CFT Internal Controls**
+
+* Senior management oversight
+* Account opening
+* STR/SAR and LCTR
+* Record keeping
+* Thresholds/limits
+* Dual controls
+* Built-in safeguards / electronic parameters
+* Staff screening
+* Reviews
+* Reports
+
+### Approved Chief Compliance Officer
+
+* Designated by Board of Directors
+* Required qualifications and expertise / TOR
+* Volependent/independent
+* Sufficient authority
+
+### Dedicated / Stand-alone Department
+
+* Dedicated / stand-alone department
+* VSC Unit
+* Sanctions Screening
+* Program Management
+* Transaction Monitoring
+* Investigation
+* Compliance officers at branches
+* Screening employees — fit & proper criteria
+* Screening third-party employees, if applicable
+
+### Ongoing AML/CFT Training
+
+* Frequency of contents
+* Screening third-party employees, if applicable
+* Ongoing AML/CFT Training Plan
+* Senior management / operational personnel
+* Customer-facing staff
+* Compliance staff
+* Audit staff
+* Senior Management / Board of Directors
+* Attendance, record and evidence of training
+
+### Regulatory / Compliance Notes
+
+**Beneficial Ownership Disclosure**
+
+* Confirmed Meridian Foods LLC 60/40 ownership split.
+* Ownership split: 60% / 40%.
+* Ownership information is on file.
+
+**Beneficial Ownership / Ownership Split**
+
+* Completed & Verified.
+
+**OFAC / Sanctions Screening Result**
+
+* CLEAR.
+
+**AML Risk Rating**
+
+* LOW.
+* Status: Ongoing.
+
+**Source of Funds / Source of Funds or Equity Contribution**
+
+* Documented as retained earnings.
+
+**Compliance Officer Sign-off**
+
+* Sarah Johnson
+* Compliance Officer
+* Date: 2023-10-27
+
+**Required regulatory disclosures**
+
+* On File.
+
+**Required regulatory disclosures / standard commercial lending disclosures**
+
+* Standard commercial lending disclosures provided per [State] requirements.
+
+### AML/CFT Risk Assessment
+
+The checklist covers:
+
+* AML/CFT Risk Assessment
+* Risk Assessment
+* Updated Assessment
+* Risk Factors
+* Reviewing Risk Scoring Model
+* New Products, Technologies, Delivery Channels & Practices
+* Completed — See Annex A / See Annex A
+
+### Customer Due Diligence (CDD)
+
+**Customer Identification Requirements**
+
+* Legal Person and Legal Arrangements
+* NGOs / NPOs
+* KYC / Account Opening Forms — Dari or Pashto Language
+* KYC / Account Opening Forms — English Language
+
+**Account Opening & Screening**
+
+* Screening before account activation
+* Payment / Transaction screening
+* Customer acceptance and rejection policy
+
+---
+
+# 2. Meridian Foods LLC — Loan Term Sheet / Covenant Schedule
+
+**Company:** Meridian Foods LLC
+
+**Document:** Loan Term Sheet / Covenant Schedule
+
+Meridian Foods LLC is described as a **mid-sized commercial food processing company** requesting a **$2.4 million term loan** to expand cold-storage capacity at its existing facility.
+
+The stated purpose is expansion of cold-storage capacity, including refrigeration / warehouse-related expansion.
+
+### Summary of Terms
+
+**Proposed Interest Rate**
+
+* SOFR + 3.25%
+* Marked as fictional in the document.
+
+**Amortization Schedule**
+
+* 7-year term
+* Monthly payments
+
+**Financial Covenants**
+
+* Minimum DSCR: 1.25x
+* DSCR tested quarterly
+* Maximum Debt-to-EBITDA: 3.5x
+* Minimum current ratio: 1.1x
+
+**Reporting Covenants**
+
+* Quarterly financial statements due within 45 days.
+* Annual reviewed financials due within 120 days.
+
+**Negative Covenants**
+
+* No additional secured debt without lender consent.
+* Limits on distributions if DSCR falls below threshold.
+
+**Closing Time**
+
+* As short as 2 weeks to funding.
+* Typical timeline stated as approximately 3–4 weeks.
+
+---
+
+# 3. Merged Business Credit Report
+
+**Company:** Advantage Credit Business Services
+
+**Document:** Merged Business Credit Report
+
+**Address of reporting company:**
+32055 Castle Court, Suite 300, Evergreen, CO 80439
+
+**Phone:** 303-670-7993
+**Fax:** 303-670-8067
+
+The report states that the reporting bureau certifies compliance with contractual requirements governing public records.
+
+### Report Information
+
+**File #:** 5582901
+**Date Completed:** 05/15/2026
+**Requested By:** Bank Loan Officer
+
+**Business Name:** Meridian Foods LLC
+
+**DUNS #:** 987654321
+
+**Address:**
+123 Industrial Pkwy, Anytown, State 54321
+
+**Personal Guarantor:** Managing Member
+**Personal Guarantor Score:** 740
+
+---
+
+### Business Credit Scores & Summary
+
+**D&B PAYDEX Score**
+
+* 78
+* Low Risk
+
+Factors listed:
+
+* Time since most recent account is too short
+* Length of time accounts have been established
+* Too many inquiries in last 12 months
+* Time in existence / length of time revolving accounts
+
+**Business Credit Risk Score**
+
+* 4
+* Low Risk
+
+Factors listed:
+
+* Time since accounts have been established
+* Length of time revolving accounts have been established
+* Too many inquiries last 12 months
+* Time since most recent account opening
+* Score: 740
+
+---
+
+### Prior Bank Loan History
+
+**Loan ID:** 123456
+**Origination Date:** 03/2021
+**Amount:** $500,000
+**Status:** Paid in Full
+**Delinquencies:** 0
+
+---
+
+### Trade Payment History
+
+**Supplier A**
+
+* Pays as agreed
+
+**Supplier B**
+
+* Pays as agreed
+
+**Supplier C**
+
+* Pays as agreed
+
+---
+
+### Business Risk Assessment
+
+* Low Risk
+* Stable Operations
+
+---
+
+### Loan Covenants Summary
+
+* DSCR > 1.25x
+* Leverage Ratio < 3.0x
+
+---
+
+### Additional Report Information
+
+The report contains an ECOA key:
+
+* B = Borrower
+* C = Co-borrower
+* J = Joint
+* U = Undesignated
+* A = Authorized User
+* P = Participant
+* S = Co-signer
+
+The report states that the information is furnished in response to an inquiry for the purpose of evaluating credit risks and does not constitute a guarantee.
+
+---
+
+# 4. Collateral Valuation Summary Report
+
+**Document:** Collateral Valuation Summary Report
+
+**File Reference:** 1200 Industrial MEC
+**Reference Number:** 00001903
+
+### Client / Borrower
+
+**Client:** Terna / Jama Lending
+**Borrower:** Meridian Foods LLC
+
+**Borrower Address:** 1200 Industrial Parkway
+
+**City:** Highlands Ranch
+**County:** Douglas County
+**State:** CO
+**ZIP:** 62128
+
+**Phone:** (877) 375-5677
+
+**APN:** 14-22.0-300-015
+
+**R.E. Taxes:** 1 890-11
+**Tax Year:** 2008
+
+### Property
+
+**Property Interest Appraised:** Fee Simple / Other
+
+**Highest and Best Use:**
+Not clearly legible / partially obscured in the source.
+
+**Project Scope:**
+Valuation of new equipment purchase and 2nd lien valuation on real property.
+
+### Physical Property Characteristics
+
+**Year Built:** 2005
+
+**Design:** 2 Story
+
+**Bedrooms:** 3
+**Bathrooms:** 3
+**Rooms:** 1
+
+**GLA:** 45,000 SF
+
+**Basement:** 45,000 SF Total
+
+**Site Area:** 5.10 acres
+
+**Balm/Built Finished:** 5.10 Acres
+
+**Car Storage:** Industrial Food Processing / Cold Storage Warehouse
+
+There are some OCR/template inconsistencies in this portion of the document, so values such as the number of stories should not be treated as reliable without verification.
+
+### Neighborhood
+
+**Neighborhood:** Highlands Ranch
+
+**Location:** Suburban
+
+**Growth:** Stable
+
+**Price / Market Data**
+
+* Median List Price: $299,000
+* Median Rate Price: $235,500
+* List in Rate Ratio: 96.25
+
+The neighborhood description states that the property is located near Highway C-711, between Interstate 25 and North Fa Drive, and is described as being in a desirable neighborhood.
+
+The neighborhood reportedly contains more than 20,000 housing units.
+
+### Neighborhood Market Conditions
+
+The document indicates:
+
+* Property values: Increasing
+* Demand / Quality: In Balance
+* Marketing time: Less than 3 months
+* Neighborhood price range shown between approximately $205,000 and more than $1,000,000.
+
+### Valuation
+
+**Neighborhood Sales Price Range**
+
+* $1,100,000 to $450,000
+
+**Average Neighborhood Sale Price**
+
+* $2,100,000
+
+**Indicated Value from Regression**
+
+* $2,100,000
+
+**Indicated Value Range from Regression**
+
+* $3,200,000 to $2,290,000
+
+**Market Value of Subject Property**
+
+* $252,500
+
+**Effective Date of Appraisal**
+
+* 12/01/2023
+
+### Forecast
+
+**Forecast Source:** Varcle / partially unclear
+
+**Forecast Date:** 02/18/2025
+
+The forecast indicates expected market changes over the following periods:
+
+* Next 3 months: approximately $246,868.8
+* Next 6 months: approximately $244,681.73
+* Next 12 months: approximately $238,995.29
+
+The report also contains a market-price figure of approximately $252,000.
+
+### Appraiser
+
+**Name:** Sample Appraiser
+
+**Company:** Professor Bradford Technologies
+
+**Address:** 302 Percy NV
+
+**City:** San Francisco
+**State:** CA
+**ZIP:** 95138
+
+**License #:** CA3778
+
+**Inspection Date:** 10/18/2011
+
+**Inspection:** No Inspection / Exterior Only / Interior and Exterior — selection appears partially obscured.
+
+The report contains an appraisal signature and an APEX / appraisal certification mark.
+
+---
+
+# 5. Meridian Foods LLC — Financial Statements Package
+
+**Company:** Meridian Foods LLC
+
+**Document:** Financial Statements Package
+
+**Period:** Years ending December 31, 2025 and December 31, 2024
+
+**Financial Statements:** Reviewed financials prepared by [Fictional CPA Firm]
+
+---
+
+## Income Statement
+
+### FY2025
+
+**Revenue:** $10,000,000
+**COGS:** $7,000,000
+**Gross Margin:** $3,000,000
+**Operating Expenses:** $1,500,000
+**EBITDA:** $1,500,000
+**Net Income:** $1,000,000
+
+### FY2024
+
+**Revenue:** $9,500,000
+**COGS:** $6,800,000
+**Gross Margin:** $2,700,000
+**Operating Expenses:** $1,400,000
+**EBITDA:** $1,300,000
+**Net Income:** $850,000
+
+---
+
+## Balance Sheet
+
+### FY2025
+
+**Total Assets:** $15,000,000
+**Current Assets:** $5,000,000
+**Total Liabilities:** $8,000,000
+**Current Liabilities:** $3,000,000
+**Equity:** $7,000,000
+
+### FY2024
+
+**Total Assets:** $14,200,000
+**Current Assets:** $4,800,000
+**Total Liabilities:** $7,500,000
+**Current Liabilities:** $2,900,000
+**Equity:** $6,700,000
+
+---
+
+## Cash Flow Statement
+
+### FY2025
+
+**Operating Cash Flow:** $1,800,000
+**Capex:** $500,000
+**Financing Activities:** $200,000
+
+### FY2024
+
+**Operating Cash Flow:** $1,600,000
+**Capex:** $400,000
+**Financing Activities:** $100,000
+
+---
+
+## Key Ratios — FY2025
+
+**Debt-to-Income:** 1.14x
+**DSCR:** 1.35x
+**Current Ratio:** 1.67x
+**Gross Margin:** 30.0%
+
+---
+
+# 6. Uniform Residential Loan Application
+
+**Form:** Fannie Mae Form 1003
+**Page:** 2
+**Form Version:** 7/05 (rev. 6/09)
+
+### Borrower Employment Information
+
+**Employer:** Meridian Foods LLC
+**Address:** [Fictional Address]
+
+**Employment Type:** Self Employed
+
+**Years on Job:** 11
+
+**Years employed in this line of work / profession:** 11
+
+**Position / Title / Type of Business:**
+Food manufacturing — frozen specialty foods
+
+**Business:**
+Delaware LLC, formed 2014
+
+**Business Phone:**
+(400) 325-2333
+
+The co-borrower section appears to contain similar employment tenure information, but the co-borrower's name and detailed employer information are not clearly provided.
+
+---
+
+## Monthly Income
+
+**Borrower Base Employment Income:**
+$1,183,333 per month
+
+Other income categories shown on the form:
+
+* Overtime
+* Bonuses
+* Commissions
+* Dividends / interest
+* Net rental income
+* Other income
+
+No additional values are clearly entered for these categories.
+
+---
+
+## Combined Monthly Housing Expense
+
+The form contains fields for:
+
+* Rent
+* First Mortgage (P&I)
+* Other Financing (P&I)
+* Hazard Insurance
+* Real Estate Taxes
+* Mortgage Insurance
+* Homeowner Association Dues
+* Other
+* Total
+
+No meaningful values are clearly populated in these fields.
+
+---
+
+## Loan Request
+
+**Requested Loan Amount:** $2,400,000
+
+**Loan Purpose:**
+Cold-storage facility expansion, including new refrigeration units and warehouse extension.
+
+**Requested Term:** 7 years
+
+### Ownership
+
+**Ownership Structure:**
+
+* 60% Managing Member — [Fictional Name]
+* 40% Minority Investor Group
+
+### Management
+
+**Management Team:**
+CEO/COO with over 20 years of experience in food manufacturing, with prior leadership roles at major industry companies.
+
+**Number of Employees:** Approximately 85
+
+**Annual Revenue:** Approximately $14.2M
+
+---
+
+# Consolidated borrower picture
+
+Across the documents, the borrower is consistently identified as **Meridian Foods LLC**, a food manufacturing / food processing company focused on frozen specialty foods and cold-storage operations.
+
+The company is seeking a **$2.4 million, 7-year term loan** for expansion of its cold-storage facility, including refrigeration equipment and warehouse expansion.
+
+The stated loan economics are:
+
+* Interest rate: **SOFR + 3.25%**
+* Term: **7 years**
+* Payments: **Monthly**
+* Minimum DSCR: **1.25x**
+* Maximum Debt-to-EBITDA: **3.5x**
+* Minimum Current Ratio: **1.1x**
+* Quarterly financial reporting within **45 days**
+* Annual reviewed financials within **120 days**
+
+The FY2025 financials show:
+
+* Revenue: **$10.0M**
+* EBITDA: **$1.5M**
+* Net income: **$1.0M**
+* Assets: **$15.0M**
+* Liabilities: **$8.0M**
+* Equity: **$7.0M**
+* Operating cash flow: **$1.8M**
+* DSCR: **1.35x**
+* Current ratio: **1.67x**
+* Gross margin: **30%**
+
+The credit report characterizes the business as **low risk / stable operations**, with:
+
+* D&B PAYDEX: **78 — Low Risk**
+* Business Credit Risk Score: **4 — Low Risk**
+* Personal guarantor score: **740**
+* Prior $500K bank loan: **Paid in Full**
+* Prior loan delinquencies: **0**
+* Trade suppliers: **Pays as agreed**
+
+The collateral is described as an industrial food-processing / cold-storage property at **1200 Industrial Parkway, Highlands Ranch, Colorado**, with:
+
+* Approximately **45,000 SF**
+* **5.10-acre** site
+* Built in **2005**
+* APN **14-22.0-300-015**
+
+The AML/KYC documentation indicates:
+
+* **60/40 ownership split confirmed**
+* Beneficial ownership **completed and verified**
+* OFAC/sanctions screening: **CLEAR**
+* AML risk rating: **LOW**
+* Source of equity contribution: **retained earnings**
+* Compliance officer: **Sarah Johnson**
+* Compliance sign-off: **2023-10-27**
+* Required regulatory filings: **On File**

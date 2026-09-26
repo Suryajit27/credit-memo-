@@ -293,7 +293,8 @@ INDEX_PAYLOAD=$(cat <<EOF
 {
   "name": "$INDEX_NAME",
   "fields": [
-    {"name": "id", "type": "Edm.String", "key": true, "searchable": false, "filterable": true},
+    {"name": "id", "type": "Edm.String", "key": true, "searchable": true, "filterable": true, "analyzer": "keyword"},
+    {"name": "parentId", "type": "Edm.String", "searchable": false, "filterable": true},
     {"name": "content", "type": "Edm.String", "searchable": true, "filterable": false},
     {"name": "contentVector", "type": "Collection(Edm.Single)", "searchable": true, "dimensions": 1536, "vectorSearchProfile": "myHnswProfile"},
     {"name": "requestId", "type": "Edm.String", "searchable": false, "filterable": true, "facetable": true},
@@ -339,17 +340,44 @@ SKILLSET_PAYLOAD=$(cat <<EOF
       "outputs": [{"name": "mergedText", "targetName": "mergedContent"}]
     },
     {
+      "@odata.type": "#Microsoft.Skills.Text.SplitSkill",
+      "name": "split-skill",
+      "context": "/document",
+      "textSplitMode": "pages",
+      "maximumPageLength": 6000,
+      "pageOverlapLength": 300,
+      "defaultLanguageCode": "en",
+      "inputs": [{"name": "text", "source": "/document/mergedContent"}],
+      "outputs": [{"name": "textItems", "targetName": "pages"}]
+    },
+    {
       "@odata.type": "#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill",
       "name": "embed-skill",
-      "context": "/document",
+      "context": "/document/pages/*",
       "resourceUri": "$AZURE_OPENAI_ENDPOINT",
       "apiKey": "$AZURE_OPENAI_KEY",
       "deploymentId": "$AZURE_OPENAI_EMBEDDING_DEPLOYMENT",
       "modelName": "$AZURE_OPENAI_EMBEDDING_DEPLOYMENT",
-      "inputs": [{"name": "text", "source": "/document/mergedContent"}],
+      "inputs": [{"name": "text", "source": "/document/pages/*"}],
       "outputs": [{"name": "embedding", "targetName": "contentVector"}]
     }
   ],
+  "indexProjections": {
+    "selectors": [{
+      "targetIndexName": "$INDEX_NAME",
+      "parentKeyFieldName": "parentId",
+      "sourceContext": "/document/pages/*",
+      "mappings": [
+        {"name": "content", "source": "/document/pages/*"},
+        {"name": "contentVector", "source": "/document/pages/*/contentVector"},
+        {"name": "requestId", "source": "/document/requestid"},
+        {"name": "documentType", "source": "/document/documenttype"},
+        {"name": "blobName", "source": "/document/metadata_storage_path"},
+        {"name": "uploadedAt", "source": "/document/uploadtimestamp"}
+      ]
+    }],
+    "parameters": {"projectionMode": "skipIndexingParentDocuments"}
+  },
   "cognitiveServices": $COGNITIVE_SERVICES_BLOCK
 }
 EOF
@@ -369,7 +397,6 @@ INDEXER_PAYLOAD=$(cat <<EOF
     }
   },
   "fieldMappings": [
-    {"sourceFieldName": "metadata_storage_path", "targetFieldName": "id", "mappingFunction": {"name": "base64Encode"}},
     {"sourceFieldName": "metadata_storage_path", "targetFieldName": "blobName"},
     {"sourceFieldName": "requestid", "targetFieldName": "requestId"},
     {"sourceFieldName": "documenttype", "targetFieldName": "documentType"},
@@ -377,10 +404,7 @@ INDEXER_PAYLOAD=$(cat <<EOF
     {"sourceFieldName": "chunkindex", "targetFieldName": "chunkIndex"},
     {"sourceFieldName": "totalchunks", "targetFieldName": "totalChunks"}
   ],
-  "outputFieldMappings": [
-    {"sourceFieldName": "/document/mergedContent", "targetFieldName": "content"},
-    {"sourceFieldName": "/document/contentVector", "targetFieldName": "contentVector"}
-  ]
+  "outputFieldMappings": []
 }
 EOF
 )

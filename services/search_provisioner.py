@@ -79,7 +79,8 @@ def provision_search_resources():
         index_payload = {
             "name": index_name,
             "fields": [
-                {"name": "id", "type": "Edm.String", "key": True, "searchable": False, "filterable": True},
+                {"name": "id", "type": "Edm.String", "key": True, "searchable": True, "filterable": True, "analyzer": "keyword"},
+                {"name": "parentId", "type": "Edm.String", "searchable": False, "filterable": True},
                 {"name": "content", "type": "Edm.String", "searchable": True, "filterable": False},
                 {"name": "contentVector", "type": "Collection(Edm.Single)", "searchable": True, "dimensions": 1536, "vectorSearchProfile": "myHnswProfile"},
                 {"name": "requestId", "type": "Edm.String", "searchable": False, "filterable": True, "facetable": True},
@@ -129,16 +130,28 @@ def provision_search_resources():
                     ],
                     "outputs": [{"name": "mergedText", "targetName": "mergedContent"}]
                 },
-                # Embed: vectorize the merged full-document text
+                # Split merged text before embedding so long reports never exceed model limits.
+                {
+                    "@odata.type": "#Microsoft.Skills.Text.SplitSkill",
+                    "name": "split-skill",
+                    "context": "/document",
+                    "textSplitMode": "pages",
+                    "maximumPageLength": 6000,
+                    "pageOverlapLength": 300,
+                    "defaultLanguageCode": "en",
+                    "inputs": [{"name": "text", "source": "/document/mergedContent"}],
+                    "outputs": [{"name": "textItems", "targetName": "pages"}],
+                },
+                # Embed each bounded text chunk instead of the full document.
                 {
                     "@odata.type": "#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill",
                     "name": "embed-skill",
-                    "context": "/document",
+                    "context": "/document/pages/*",
                     "resourceUri": openai_endpoint,
                     "apiKey": openai_key,
                     "deploymentId": embedding_deployment,
                     "modelName": embedding_deployment,
-                    "inputs": [{"name": "text", "source": "/document/mergedContent"}],
+                    "inputs": [{"name": "text", "source": "/document/pages/*"}],
                     "outputs": [{"name": "embedding", "targetName": "contentVector"}]
                 }
             ]
@@ -146,6 +159,22 @@ def provision_search_resources():
                 "name": skillset_name,
                 "description": "OCR → Merge → Embed skillset for loan documents (images + PDFs)",
                 "skills": skills,
+                "indexProjections": {
+                    "selectors": [{
+                        "targetIndexName": index_name,
+                        "parentKeyFieldName": "parentId",
+                        "sourceContext": "/document/pages/*",
+                        "mappings": [
+                            {"name": "content", "source": "/document/pages/*"},
+                            {"name": "contentVector", "source": "/document/pages/*/contentVector"},
+                            {"name": "requestId", "source": "/document/requestid"},
+                            {"name": "documentType", "source": "/document/documenttype"},
+                            {"name": "blobName", "source": "/document/metadata_storage_path"},
+                            {"name": "uploadedAt", "source": "/document/uploadtimestamp"},
+                        ],
+                    }],
+                    "parameters": {"projectionMode": "skipIndexingParentDocuments"},
+                },
                 # Attach Azure AI Services key to remove the 20-document free enrichment cap
                 "cognitiveServices": {
                     "@odata.type": "#Microsoft.Azure.Search.CognitiveServicesByKey",
@@ -176,7 +205,6 @@ def provision_search_resources():
             # NOTE: Azure Blob Storage lowercases ALL metadata key names,
             # so requestId → requestid, documentType → documenttype
             "fieldMappings": [
-                {"sourceFieldName": "metadata_storage_path", "targetFieldName": "id", "mappingFunction": {"name": "base64Encode"}},
                 {"sourceFieldName": "metadata_storage_path", "targetFieldName": "blobName"},
                 {"sourceFieldName": "requestid",    "targetFieldName": "requestId"},
                 {"sourceFieldName": "documenttype", "targetFieldName": "documentType"},
@@ -184,11 +212,7 @@ def provision_search_resources():
                 {"sourceFieldName": "chunkindex",    "targetFieldName": "chunkIndex"},
                 {"sourceFieldName": "totalchunks",   "targetFieldName": "totalChunks"}
             ],
-            # Map skillset outputs → index fields
-            "outputFieldMappings": [
-                {"sourceFieldName": "/document/mergedContent", "targetFieldName": "content"},
-                {"sourceFieldName": "/document/contentVector", "targetFieldName": "contentVector"}
-            ]
+            "outputFieldMappings": []
         }
         r = requests.put(f"{search_endpoint}/indexers/{indexer_name}?api-version={api_version}", json=indexer_payload, headers=headers)
         if not r.ok:

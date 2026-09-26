@@ -7,14 +7,17 @@ type Extraction = {
   schemaVersion?: string;
   fields: Record<string, CanonicalField>;
   findings?: string[];
-  finalizedAt: string;
-  updatedAt: string;
+  validation?: ValidationResult;
+  finalizedAt?: string;
+  updatedAt?: string;
 };
 
 type SourceEvidence = { provider: string; model: string; page: number; evidence: string; confidence: number };
 type Candidate = { id: string; value: unknown; valueType: string; confidence: number; source: SourceEvidence };
 type CanonicalField = { value: unknown; valueType: string; confidence: number; status: string; sources: SourceEvidence[]; candidates: Candidate[] };
 type RepairPayload = { stage: 'layout' | 'vision'; rawOutput: string; baseFields: Record<string, unknown> };
+type ValidationCheck = { fieldName: string; status: string; expectedValue?: unknown; extractedValue?: unknown; comparison?: string; similarityPercent?: number; page?: number; evidence?: string; reason?: string };
+type ValidationResult = { status: string; sourceGroup?: string; checks: ValidationCheck[] };
 
 type RequestDocument = {
   originalPath: string;
@@ -84,7 +87,7 @@ export default function DocumentExtraction() {
     setExtraction(selected.extraction ?? null);
     setRepair(null);
     setError('');
-    setNotice(selected.extraction ? `Finalized ${new Date(selected.extraction.finalizedAt).toLocaleString()}` : '');
+    setNotice(selected.extraction?.finalizedAt ? `Finalized ${new Date(selected.extraction.finalizedAt).toLocaleString()}` : '');
   }, [selectedBlobName, documents]);
 
   const extract = async () => {
@@ -98,7 +101,13 @@ export default function DocumentExtraction() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestId, blobName: selected.blobName }),
       });
-      const payload = await response.json();
+      const responseText = await response.text();
+      let payload: any;
+      try {
+        payload = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(responseText || `Extraction failed with status ${response.status}.`);
+      }
       if (response.status === 422 && payload.repair) {
         setRepair(payload.repair);
         setRepairText(payload.repair.rawOutput);
@@ -196,7 +205,7 @@ export default function DocumentExtraction() {
               {(error || notice) && <div className={`mx-5 mt-4 rounded-md px-3 py-2 text-xs ${error ? 'bg-red-50 text-red-700' : 'bg-[#e7eee8] text-[#39745e]'}`}>{error || notice}</div>}
               <div className="grid min-h-[680px] gap-0 xl:grid-cols-2">
                 <div className="border-b border-border p-4 xl:border-b-0 xl:border-r"><div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.13em] text-muted-foreground">{isPdf(selected) ? <FileText size={13} /> : <Image size={13} />} Source preview</div><div className="h-[610px] overflow-hidden rounded-md border border-border bg-[#f5f5f5]">{isPdf(selected) ? <iframe title={`Preview ${selected.originalPath}`} src={previewUrl} className="h-full w-full" /> : isImage(selected) ? <img src={previewUrl} alt={selected.originalPath} className="h-full w-full object-contain" /> : <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm text-muted-foreground"><FileText size={30} className="mb-3 text-muted-foreground/50" />Preview is available for PDF and image documents in this release.</div>}</div></div>
-                <div className="min-h-0 p-4"><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.13em] text-muted-foreground"><FileJson2 size={13} /> Evidence review</div><span className="text-[10px] text-muted-foreground">Select a candidate or edit the reviewed value</span></div><div className="h-[610px] overflow-y-auto rounded-md border border-border bg-[#fbfaf7] p-3">{repair ? <JsonRepairPanel repair={repair} value={repairText} onChange={setRepairText} onApply={applyRepair} applying={repairing} /> : extraction ? <><EvidenceFieldTable fields={extraction.fields} onChange={(fields) => setExtraction({ ...extraction, fields })} />{extraction.findings?.length ? <div className="mt-4 rounded-md border border-[#e5d5ad] bg-[#fff8e7] p-3"><div className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#72501d]">Agent findings</div><div className="mt-2 space-y-1 text-xs text-[#72501d]">{extraction.findings.map((finding, index) => <div key={index}>{finding}</div>)}</div></div> : null}</> : <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">Run extraction to compare Document Intelligence and vision-agent evidence.</div>}</div></div>
+                <div className="min-h-0 p-4"><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.13em] text-muted-foreground"><FileJson2 size={13} /> Evidence review</div><span className="text-[10px] text-muted-foreground">Select a candidate or edit the reviewed value</span></div><div className="h-[610px] overflow-y-auto rounded-md border border-border bg-[#fbfaf7] p-3">{repair ? <JsonRepairPanel repair={repair} value={repairText} onChange={setRepairText} onApply={applyRepair} applying={repairing} /> : extraction ? <><ValidationPanel validation={extraction.validation} /><EvidenceFieldTable fields={extraction.fields} onChange={(fields) => setExtraction({ ...extraction, fields, validation: undefined })} />{extraction.findings?.length ? <div className="mt-4 rounded-md border border-[#e5d5ad] bg-[#fff8e7] p-3"><div className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#72501d]">Agent findings</div><div className="mt-2 space-y-1 text-xs text-[#72501d]">{extraction.findings.map((finding, index) => <div key={index}>{finding}</div>)}</div></div> : null}</> : <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">Run extraction to compare Document Intelligence and vision-agent evidence.</div>}</div></div>
               </div>
             </> : <EmptyState message="Choose a source document to begin extraction." />}
           </section>
@@ -214,6 +223,30 @@ function JsonRepairPanel({ repair, value, onChange, onApply, applying }: { repai
   return <div className="flex h-full flex-col"><div className="rounded-md border border-[#e5d5ad] bg-[#fff8e7] p-3"><div className="text-xs font-semibold text-[#72501d]">Repair {repair.stage} response</div><p className="mt-1 text-xs leading-5 text-[#72501d]">Correct the JSON returned by the completed agent stage. Applying this does not call the extraction agent again.</p></div><textarea value={value} onChange={(event) => onChange(event.target.value)} spellCheck={false} aria-label="Corrected extraction JSON" className="mt-3 min-h-0 flex-1 resize-none rounded-md border border-border bg-[#151a20] p-3 font-mono text-xs leading-5 text-[#e8edf1] outline-none focus:border-[#a17734] focus:ring-2 focus:ring-[#a17734]/15" /><div className="mt-3 flex justify-end"><button type="button" onClick={onApply} disabled={applying} className="flex items-center gap-2 rounded-md bg-[#39745e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#274f41] disabled:opacity-50">{applying ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Apply corrected JSON</button></div></div>;
 }
 
+function ValidationPanel({ validation }: { validation?: ValidationResult }) {
+  if (!validation) return null;
+  const tone = validation.status === 'passed' ? 'border-[#9abda5] bg-[#edf6ef] text-[#276044]' : validation.status === 'missing_source_data' || validation.status === 'not_configured' ? 'border-[#e5d5ad] bg-[#fff8e7] text-[#72501d]' : 'border-[#e5b6b1] bg-[#fff1f0] text-[#9d3028]';
+  return <section className={`mb-4 overflow-hidden rounded-md border ${tone}`}>
+    <div className="flex items-center justify-between gap-3 px-3 py-2.5"><div><div className="font-mono text-[9px] uppercase tracking-[0.1em]">Cosmos validation</div><div className="mt-1 text-xs font-semibold">{validation.status.replaceAll('_', ' ')}</div></div><div className="text-right font-mono text-[9px] uppercase tracking-[0.08em]">{validation.sourceGroup || 'No source group'}</div></div>
+    {validation.checks.length ? <div className="divide-y divide-current/15 border-t border-current/15 bg-white/45">{validation.checks.map((check) => <div key={check.fieldName} className="p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs font-semibold">{check.fieldName}</div><div className="flex items-center gap-2">{check.similarityPercent != null ? <span className="font-mono text-[10px] text-foreground/70" title="Normalized value similarity">{check.similarityPercent}% match</span> : null}<span className={`rounded px-2 py-1 font-mono text-[9px] uppercase tracking-[0.08em] ${check.status === 'passed' ? 'bg-[#dcece1] text-[#276044]' : check.status === 'review_required' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'}`}>{check.status.replaceAll('_', ' ')}</span></div></div>{check.status !== 'passed' ? <><div className="mt-2 grid gap-2 text-xs sm:grid-cols-2"><ValidationValue label="Cosmos value" value={check.expectedValue} /><ValidationValue label="Extracted value" value={check.extractedValue} /></div>{check.reason ? <div className="mt-2 text-xs leading-5">{check.reason}</div> : null}{check.evidence ? <div className="mt-2 text-xs leading-5 text-foreground/70">Page {check.page}: “{check.evidence}”</div> : null}</> : null}</div>)}</div> : <div className="border-t border-current/15 px-3 py-2.5 text-xs">No configured Cosmos source data is available for this document type.</div>}
+  </section>;
+}
+
+function ValidationValue({ label, value }: { label: string; value: unknown }) {
+  return <div className="rounded border border-current/15 bg-white/60 p-2"><div className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">{label}</div><div className="mt-1 break-words text-xs text-foreground"><StructuredValue value={value} /></div></div>;
+}
+
+function readableKey(value: string) {
+  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replaceAll('_', ' ');
+}
+
+function StructuredValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
+  if (value == null) return <>Not available</>;
+  if (Array.isArray(value)) return <div className="space-y-2">{value.map((item, index) => <div key={index} className="rounded border border-border/70 bg-background/70 p-2"><div className="mb-1 font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">Item {index + 1}</div><StructuredValue value={item} depth={depth + 1} /></div>)}</div>;
+  if (typeof value === 'object') return <dl className="grid gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(110px,.42fr)_minmax(0,1fr)]">{Object.entries(value as Record<string, unknown>).map(([key, item]) => <div key={key} className="contents"><dt className="font-mono text-[9px] uppercase tracking-[0.06em] text-muted-foreground">{readableKey(key)}</dt><dd className="min-w-0 break-words"><StructuredValue value={item} depth={depth + 1} /></dd></div>)}</dl>;
+  return <>{String(value)}</>;
+}
+
 function EvidenceFieldTable({ fields, onChange }: { fields: Record<string, CanonicalField>; onChange: (fields: Record<string, CanonicalField>) => void }) {
   const update = (name: string, field: CanonicalField) => onChange({ ...fields, [name]: field });
   const selectCandidate = (name: string, field: CanonicalField, candidate: Candidate) => update(name, { ...field, value: candidate.value, valueType: candidate.valueType, confidence: candidate.confidence, status: 'reviewed' });
@@ -221,7 +254,7 @@ function EvidenceFieldTable({ fields, onChange }: { fields: Record<string, Canon
   return <div className="space-y-3">{Object.entries(fields).map(([name, field]) => <section key={name} className="overflow-hidden rounded-md border border-[#dfd8ca] bg-white">
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e6e0d5] bg-[#f7f4ed] px-3 py-2"><div className="text-xs font-semibold">{name}</div><span className={`rounded px-2 py-1 font-mono text-[9px] uppercase tracking-[0.09em] ${field.status === 'conflict' ? 'bg-amber-100 text-amber-800' : field.status === 'reviewed' ? 'bg-[#dcece1] text-[#276044]' : 'bg-[#e8edf1] text-[#53606c]'}`}>{field.status}</span></div>
     <div className="p-3"><div className="mb-3"><div className="mb-1 font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">Reviewed value</div><ValueEditor value={field.value} onChange={(value) => update(name, { ...field, value, status: 'edited' })} /></div>
-      <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">Evidence candidates</div><div className="mt-2 grid gap-2">{field.candidates.map((candidate) => <button key={candidate.id} type="button" onClick={() => selectCandidate(name, field, candidate)} className={`rounded border p-2.5 text-left transition-colors ${JSON.stringify(field.value) === JSON.stringify(candidate.value) ? 'border-[#6b9b7d] bg-[#edf6ef]' : 'border-border hover:border-[#c8a86d] hover:bg-[#fffaf0]'}`}><div className="flex items-start justify-between gap-3"><div className="text-xs font-semibold break-words">{typeof candidate.value === 'object' ? JSON.stringify(candidate.value) : String(candidate.value)}</div><span className="shrink-0 font-mono text-[10px] text-muted-foreground">{Math.round(candidate.confidence * 100)}%</span></div><div className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">{candidate.source.provider.replaceAll('_', ' ')} · page {candidate.source.page}</div><div className="mt-1 text-xs leading-5 text-foreground/70">“{candidate.source.evidence}”</div></button>)}</div>
+      <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">Evidence candidates</div><div className="mt-2 grid gap-2">{field.candidates.map((candidate) => <button key={candidate.id} type="button" onClick={() => selectCandidate(name, field, candidate)} className={`rounded border p-2.5 text-left transition-colors ${JSON.stringify(field.value) === JSON.stringify(candidate.value) ? 'border-[#6b9b7d] bg-[#edf6ef]' : 'border-border hover:border-[#c8a86d] hover:bg-[#fffaf0]'}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1 text-xs font-semibold break-words"><StructuredValue value={candidate.value} /></div><span className="shrink-0 font-mono text-[10px] text-muted-foreground">{Math.round(candidate.confidence * 100)}%</span></div><div className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">{candidate.source.provider.replaceAll('_', ' ')} · page {candidate.source.page}</div><div className="mt-1 text-xs leading-5 text-foreground/70">“{candidate.source.evidence}”</div></button>)}</div>
     </div>
   </section>)}</div>;
 }

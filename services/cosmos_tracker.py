@@ -1,7 +1,33 @@
 import os
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from azure.cosmos import CosmosClient, PartitionKey
 from utils.logging import logger
+
+DEMO_EXTRACTION_SOURCE_PATH = Path(__file__).resolve().parent.parent / "config" / "demo-extraction-source-data.json"
+
+
+def _demo_extracted_data(request_id: str) -> dict | None:
+    """Returns the fixed source-of-truth payload only for the explicit demo request."""
+    try:
+        with DEMO_EXTRACTION_SOURCE_PATH.open(encoding="utf-8") as source_file:
+            source = json.load(source_file)
+        return source.get("extracted_data") if source.get("requestId") == request_id else None
+    except (OSError, json.JSONDecodeError) as error:
+        logger.warning("Could not load demo extraction source data: %s", error)
+        return None
+
+
+def _attach_demo_extracted_data(item: dict) -> bool:
+    if item.get("extracted_data"):
+        return False
+    demo_data = _demo_extracted_data(str(item.get("requestId", "")))
+    if not demo_data:
+        return False
+    item["extracted_data"] = demo_data
+    logger.info("Attached demo extraction source data for requestId: %s", item["requestId"])
+    return True
 
 
 def _deduplicate_documents(documents: list) -> list:
@@ -58,6 +84,8 @@ def record_upload_in_cosmos(request_id: str, doc_info: dict) -> None:
                 "totalCount": 0,
                 "indexingErrors": []
             }
+
+        _attach_demo_extracted_data(item)
 
         documents = _deduplicate_documents(item.get("documents", []))
         existing_document = next((document for document in documents if document.get("blobName") == doc_info.get("blobName")), None)
@@ -133,7 +161,8 @@ def get_request_from_cosmos(request_id: str) -> dict:
             return None
         item = container.read_item(item=request_id, partition_key=request_id)
         documents = _deduplicate_documents(item.get("documents", []))
-        if len(documents) != len(item.get("documents", [])) or item.get("totalCount") != len(documents):
+        attached_demo_source = _attach_demo_extracted_data(item)
+        if attached_demo_source or len(documents) != len(item.get("documents", [])) or item.get("totalCount") != len(documents):
             item["documents"] = documents
             item["totalCount"] = len(documents)
             item["updatedAt"] = datetime.now(timezone.utc).isoformat()

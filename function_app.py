@@ -32,6 +32,7 @@ async def get_extraction_documents(req: Request):
 async def extract_document(req: Request):
     from services.cosmos_tracker import get_request_from_cosmos
     from services.document_extraction import ExtractionJsonError, extract_document_fields
+    from services.document_validation import validate_document_extraction
 
     try:
         body = await req.json()
@@ -43,7 +44,12 @@ async def extract_document(req: Request):
         if not record or not any(doc.get("blobName") == blob_name for doc in record.get("documents", [])):
             return JSONResponse(status_code=404, content={"error": "The selected document was not found for this request."})
         document = next(doc for doc in record.get("documents", []) if doc.get("blobName") == blob_name)
-        extraction = await extract_document_fields(blob_name, str(document.get("originalPath", "")))
+        extraction = await extract_document_fields(
+            blob_name,
+            str(document.get("originalPath", "")),
+            str(document.get("documentType", "")),
+        )
+        extraction["validation"] = validate_document_extraction(extraction, str(document.get("documentType", "")), record)
         return JSONResponse(status_code=200, content={"requestId": request_id, "blobName": blob_name, "extraction": extraction})
     except ExtractionJsonError as e:
         return JSONResponse(status_code=422, content={
@@ -61,6 +67,7 @@ async def extract_document(req: Request):
 async def repair_document_extraction_endpoint(req: Request):
     from services.cosmos_tracker import get_request_from_cosmos
     from services.document_extraction import repair_document_extraction
+    from services.document_validation import validate_document_extraction
 
     try:
         body = await req.json()
@@ -76,6 +83,7 @@ async def repair_document_extraction_endpoint(req: Request):
         if not document:
             return JSONResponse(status_code=404, content={"error": "The selected document was not found for this request."})
         extraction = repair_document_extraction(blob_name, str(document.get("originalPath", "")), stage, raw_output, base_fields)
+        extraction["validation"] = validate_document_extraction(extraction, str(document.get("documentType", "")), record or {})
         return JSONResponse(status_code=200, content={"requestId": request_id, "blobName": blob_name, "extraction": extraction, "repaired": True})
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
@@ -86,7 +94,8 @@ async def repair_document_extraction_endpoint(req: Request):
 
 @app.route(route="document-extraction/finalize", methods=["POST"])
 async def finalize_document_extraction(req: Request):
-    from services.cosmos_tracker import save_document_extraction
+    from services.cosmos_tracker import get_request_from_cosmos, save_document_extraction
+    from services.document_validation import validate_document_extraction
 
     try:
         body = await req.json()
@@ -95,6 +104,11 @@ async def finalize_document_extraction(req: Request):
         extraction_data = body.get("extraction")
         if not request_id or not blob_name or not isinstance(extraction_data, dict):
             return JSONResponse(status_code=400, content={"error": "requestId, blobName, and canonical extraction data are required."})
+        record = get_request_from_cosmos(request_id)
+        document = next((doc for doc in (record or {}).get("documents", []) if doc.get("blobName") == blob_name), None)
+        if not document:
+            return JSONResponse(status_code=404, content={"error": "The selected document was not found for this request."})
+        extraction_data["validation"] = validate_document_extraction(extraction_data, str(document.get("documentType", "")), record)
         extraction = save_document_extraction(request_id, blob_name, extraction_data)
         return JSONResponse(status_code=200, content={"requestId": request_id, "blobName": blob_name, "extraction": extraction})
     except ValueError as e:

@@ -13,3 +13,4 @@ python-multipart==0.0.20
 aiohttp==3.10.11
 openai==2.48.0
 pyodbc==5.2.0
+pypdf==5.1.0
